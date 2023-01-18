@@ -1,4 +1,4 @@
-# ji
+# Ji
 
 Trying to learn F# by making an interpreter.
 
