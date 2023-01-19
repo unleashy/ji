@@ -5,6 +5,7 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Ast.fs" />
     <Compile Include="Reader.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
