@@ -11,42 +11,51 @@ open Ji.Ast
 //   <ignored>
 //   Spacing → [\r\t ]*
 
-let private isEmpty code = String.length code = 0
-let private isNotEmpty = isEmpty >> not
+module private Token =
+    type T =
+        | End
+        | Int of uint64
 
-let private testFst f code = code |> isNotEmpty && f (code[0])
+module private Lexer =
+    let private span f s =
+        (Seq.takeWhile f s |> Seq.map string |> String.concat "",
+         Seq.skipWhile f s)
 
-let private takeWhile f code =
-    let rec impl code index =
-        if code |> testFst f then
-            impl code[1..] (index + 1)
-        else
-            index
+    let private isDigit c = c >= '0' && c <= '9'
 
-    let cutoff = impl code 0
-    (code[0 .. cutoff - 1], code[cutoff..])
+    let private nextInt code =
+        let text, code' = code |> span isDigit
+        match text with
+        | "" -> None
+        | _ -> Some(Token.Int(uint64 text), code')
 
-let private skipWhile f code = code |> takeWhile f |> snd
+    let private isSpacing c = List.contains c [ '\r'; '\t'; ' ' ]
 
-let private skipSpacing =
-    skipWhile (fun c -> List.contains c [ '\r'; '\t'; ' ' ])
+    let private nextToken code =
+        let code' = code |> Seq.skipWhile isSpacing
+        match nextInt code' with
+        | Some(result) -> result
+        | None when code' |> Seq.isEmpty -> (Token.End, Seq.empty)
+        | None -> failwith $"Unknown character '{Seq.head code'}'"
 
-let private isDigit c = c >= '0' && c <= '9'
+    let tokenise (code: string) : seq<Token.T> =
+        let unfoldInfinite f = Seq.unfold (f >> Some)
+        unfoldInfinite nextToken code
 
-let private readInt code =
-    if code |> testFst isDigit then
-        let intText, code = code |> takeWhile isDigit
-        Some(ExprInt(uint64 intText), code)
-    else
-        None
+let private readInt tokens =
+    match tokens |> Seq.head with
+    | Token.Int(value) -> Some(ExprInt(value), tokens |> Seq.skip 1)
+    | _ -> None
 
-let private readPrimary code = Option.get (readInt code)
+let private readPrimary tokens =
+    match readInt tokens with
+    | Some(result) -> result
+    | None -> failwith $"Unexpected {tokens |> Seq.head}"
 
-let private readExpr code = readPrimary code
+let private readExpr tokens = readPrimary tokens
 
 let read (code: string) : Expr =
-    let ast, code = code |> skipSpacing |> readExpr
-    if code |> skipSpacing |> isEmpty then
-        ast
-    else
-        failwith "Extraneous input"
+    let ast, tokens = readExpr (Lexer.tokenise code)
+    match tokens |> Seq.head with
+    | Token.End -> ast
+    | extra -> failwith $"Extraneous input: unexpected {extra}"
