@@ -18,8 +18,14 @@ module private Token =
 
 module private Lexer =
     let private span f s =
-        (Seq.takeWhile f s |> Seq.map string |> String.concat "",
-         Seq.skipWhile f s)
+        let rec loop f s acc =
+            match s |> Seq.tryHead with
+            | Some(head) when f head ->
+                let tail = s |> Seq.skip 1
+                loop f tail (acc + string head)
+            | _ -> (acc, s)
+
+        loop f s ""
 
     let private isDigit c = c >= '0' && c <= '9'
 
