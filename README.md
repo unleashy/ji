@@ -8,7 +8,7 @@ Trying to learn F# by making an interpreter.
   - [x] Read integers
   - [ ] Read arithmetic operators
 - [ ] Evaluator
-  - [ ] Evaluate integers
+  - [x] Evaluate integers
   - [ ] Evaluate arithmetic operations
 - [ ] Improve error handling and reporting
   - [ ] Use own error class/type

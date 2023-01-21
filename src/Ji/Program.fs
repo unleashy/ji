@@ -1,11 +1,8 @@
 open System
 open Ji
 
-let evaluate ast = ast
-
-let print value = $"{value}"
-
-let rep (code: string) = Reader.read code |> evaluate |> print
+let rep (code: string) =
+    code |> Reader.read |> Evaluator.eval |> Printer.print
 
 [<EntryPoint>]
 let main _ =
