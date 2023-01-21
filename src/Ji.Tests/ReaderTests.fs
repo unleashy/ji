@@ -7,8 +7,8 @@ open Ji.Ast
 open Ji.Reader
 
 [<Property>]
-let ``Reads integers`` (num: uint64) =
-    Assert.Equal(read $"{num}", ExprInt num)
+let ``Reads integers`` (num: NonNegativeInt) =
+    Assert.Equal(read $"{num}", ExprInt num.Get)
 
 [<Property>]
 let ``Skips whitespace`` () =
@@ -17,4 +17,4 @@ let ``Skips whitespace`` () =
     |> Gen.map (String.concat "")
     |> Arb.fromGen
     |> Prop.forAll
-    <| fun white -> Assert.Equal(read $"{white}1{white}", ExprInt 1UL)
+    <| fun white -> Assert.Equal(read $"{white}1{white}", ExprInt 1)

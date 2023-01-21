@@ -14,7 +14,7 @@ open Ji.Ast
 module private Token =
     type T =
         | End
-        | Int of uint64
+        | Int of int64
 
 module private Lexer =
     let private span f s =
@@ -33,7 +33,7 @@ module private Lexer =
         let text, code' = code |> span isDigit
         match text with
         | "" -> None
-        | _ -> Some(Token.Int(uint64 text), code')
+        | _ -> Some(Token.Int(int64 text), code')
 
     let private isSpacing c = List.contains c [ '\r'; '\t'; ' ' ]
 
