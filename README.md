@@ -6,10 +6,11 @@ Trying to learn F# by making an interpreter.
 
 - [ ] Reader
   - [x] Read integers
-  - [ ] Read arithmetic operators
+  - [x] Read arithmetic operators
+  - [ ] Read parentheses
 - [ ] Evaluator
   - [x] Evaluate integers
-  - [ ] Evaluate arithmetic operations
+  - [x] Evaluate arithmetic operations
 - [ ] Add functions
 - [ ] Improve error handling and reporting
   - [ ] Use own error class/type
