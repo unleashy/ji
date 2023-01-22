@@ -12,4 +12,4 @@ let rec eval (expr: Expr) : Value =
     match expr with
     | ExprInt(n) -> ValueInt(n)
     | ExprUnary(op, expr) -> evalUnary op (eval expr)
-// | _ -> failwith $"Unknown AST {expr}"
+    | _ -> failwith $"Unknown AST {expr}"

@@ -4,8 +4,12 @@ open Ji.Ast
 
 // Grammar for Ji:
 //   Top → Expr <end of input>
-//   Expr → ExprUnary
+//
+//   Expr → ExprAdd
+//   ExprAdd → ExprMul ([+-] ExprMul)*
+//   ExprMul → ExprUnary ([*/] ExprUnary)*
 //   ExprUnary → "-"? Primary
+//
 //   Primary → Int
 //   Int → [0-9]+
 //
@@ -16,7 +20,10 @@ module private Token =
     type T =
         | End
         | Int of int64
+        | Plus
         | Minus
+        | Star
+        | Slash
 
 module private Lexer =
     let private span f s =
@@ -41,7 +48,10 @@ module private Lexer =
         code
         |> Seq.tryHead
         |> Option.bind (function
+            | '+' -> Some(Token.Plus, code |> Seq.skip 1)
             | '-' -> Some(Token.Minus, code |> Seq.skip 1)
+            | '*' -> Some(Token.Star, code |> Seq.skip 1)
+            | '/' -> Some(Token.Slash, code |> Seq.skip 1)
             | _ -> None)
 
     let private nextFns = [ nextInt; nextOp ]
@@ -75,10 +85,40 @@ let private readUnary tokens =
     match tokens |> Seq.head with
     | Token.Minus ->
         let expr, tokens = readPrimary (tokens |> Seq.skip 1)
-        (ExprUnary(op = UnaryOp.Neg, expr = expr), tokens)
+        (ExprUnary(UnaryOp.Neg, expr), tokens)
     | _ -> readPrimary tokens
 
-let private readExpr tokens = readUnary tokens
+let rec private readMul tokens =
+    let (left, tokens) = readUnary tokens
+
+    let op =
+        match tokens |> Seq.head with
+        | Token.Star -> Some(BinaryOp.Mul)
+        | Token.Slash -> Some(BinaryOp.Div)
+        | _ -> None
+
+    match op with
+    | Some(op) ->
+        let right, tokens = readMul (tokens |> Seq.skip 1)
+        (ExprBinary(left, op, right), tokens)
+    | None -> (left, tokens)
+
+let rec private readAdd tokens =
+    let (left, tokens) = readMul tokens
+
+    let op =
+        match tokens |> Seq.head with
+        | Token.Plus -> Some(BinaryOp.Add)
+        | Token.Minus -> Some(BinaryOp.Sub)
+        | _ -> None
+
+    match op with
+    | Some(op) ->
+        let right, tokens = readAdd (tokens |> Seq.skip 1)
+        (ExprBinary(left, op, right), tokens)
+    | None -> (left, tokens)
+
+let private readExpr tokens = readAdd tokens
 
 let read (code: string) : Expr =
     let ast, tokens = readExpr (Lexer.tokenise code)
