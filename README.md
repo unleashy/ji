@@ -10,6 +10,7 @@ Trying to learn F# by making an interpreter.
 - [ ] Evaluator
   - [x] Evaluate integers
   - [ ] Evaluate arithmetic operations
+- [ ] Add functions
 - [ ] Improve error handling and reporting
   - [ ] Use own error class/type
   - [ ] Track line/columns
