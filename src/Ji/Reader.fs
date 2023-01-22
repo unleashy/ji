@@ -4,7 +4,8 @@ open Ji.Ast
 
 // Grammar for Ji:
 //   Top → Expr <end of input>
-//   Expr → Primary
+//   Expr → ExprUnary
+//   ExprUnary → "-"? Primary
 //   Primary → Int
 //   Int → [0-9]+
 //
@@ -15,6 +16,7 @@ module private Token =
     type T =
         | End
         | Int of int64
+        | Minus
 
 module private Lexer =
     let private span f s =
@@ -35,14 +37,25 @@ module private Lexer =
         | "" -> None
         | _ -> Some(Token.Int(int64 text), code')
 
+    let private nextOp code =
+        code
+        |> Seq.tryHead
+        |> Option.bind (function
+            | '-' -> Some(Token.Minus, code |> Seq.skip 1)
+            | _ -> None)
+
+    let private nextFns = [ nextInt; nextOp ]
+
     let private isSpacing c = List.contains c [ '\r'; '\t'; ' ' ]
 
     let private nextToken code =
-        let code' = code |> Seq.skipWhile isSpacing
-        match nextInt code' with
+        let code = code |> Seq.skipWhile isSpacing
+        let token = nextFns |> List.tryPick (fun nextFn -> nextFn code)
+
+        match token with
         | Some(result) -> result
-        | None when code' |> Seq.isEmpty -> (Token.End, Seq.empty)
-        | None -> failwith $"Unknown character '{Seq.head code'}'"
+        | None when code |> Seq.isEmpty -> (Token.End, Seq.empty)
+        | None -> failwith $"Unknown character '{Seq.head code}'"
 
     let tokenise (code: string) : seq<Token.T> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
@@ -58,7 +71,14 @@ let private readPrimary tokens =
     | Some(result) -> result
     | None -> failwith $"Unexpected {tokens |> Seq.head}"
 
-let private readExpr tokens = readPrimary tokens
+let private readUnary tokens =
+    match tokens |> Seq.head with
+    | Token.Minus ->
+        let expr, tokens = readPrimary (tokens |> Seq.skip 1)
+        (ExprUnary(op = UnaryOp.Neg, expr = expr), tokens)
+    | _ -> readPrimary tokens
+
+let private readExpr tokens = readUnary tokens
 
 let read (code: string) : Expr =
     let ast, tokens = readExpr (Lexer.tokenise code)
