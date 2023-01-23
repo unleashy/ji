@@ -11,6 +11,7 @@ open Ji.Ast
 //   ExprUnary → "-"? Primary
 //
 //   Primary → Int
+//           / "(" Expr ")"
 //   Int → [0-9]+
 //
 //   <ignored>
@@ -24,6 +25,8 @@ module private Token =
         | Minus
         | Star
         | Slash
+        | ParenOpen
+        | ParenClose
 
 module private Lexer =
     let private span f s =
@@ -52,6 +55,8 @@ module private Lexer =
             | '-' -> Some(Token.Minus, code |> Seq.skip 1)
             | '*' -> Some(Token.Star, code |> Seq.skip 1)
             | '/' -> Some(Token.Slash, code |> Seq.skip 1)
+            | '(' -> Some(Token.ParenOpen, code |> Seq.skip 1)
+            | ')' -> Some(Token.ParenClose, code |> Seq.skip 1)
             | _ -> None)
 
     let private nextFns = [ nextInt; nextOp ]
@@ -71,39 +76,9 @@ module private Lexer =
         let unfoldInfinite f = Seq.unfold (f >> Some)
         unfoldInfinite nextToken code
 
-let private readInt tokens =
-    match tokens |> Seq.head with
-    | Token.Int(value) -> Some(ExprInt(value), tokens |> Seq.skip 1)
-    | _ -> None
+let rec private readExpr tokens = readAdd tokens
 
-let private readPrimary tokens =
-    match readInt tokens with
-    | Some(result) -> result
-    | None -> failwith $"Unexpected {tokens |> Seq.head}"
-
-let private readUnary tokens =
-    match tokens |> Seq.head with
-    | Token.Minus ->
-        let expr, tokens = readPrimary (tokens |> Seq.skip 1)
-        (ExprUnary(UnaryOp.Neg, expr), tokens)
-    | _ -> readPrimary tokens
-
-let rec private readMul tokens =
-    let (left, tokens) = readUnary tokens
-
-    let op =
-        match tokens |> Seq.head with
-        | Token.Star -> Some(BinaryOp.Mul)
-        | Token.Slash -> Some(BinaryOp.Div)
-        | _ -> None
-
-    match op with
-    | Some(op) ->
-        let right, tokens = readMul (tokens |> Seq.skip 1)
-        (ExprBinary(left, op, right), tokens)
-    | None -> (left, tokens)
-
-let rec private readAdd tokens =
+and private readAdd tokens =
     let (left, tokens) = readMul tokens
 
     let op =
@@ -118,7 +93,49 @@ let rec private readAdd tokens =
         (ExprBinary(left, op, right), tokens)
     | None -> (left, tokens)
 
-let private readExpr tokens = readAdd tokens
+and private readMul tokens =
+    let (left, tokens) = readUnary tokens
+
+    let op =
+        match tokens |> Seq.head with
+        | Token.Star -> Some(BinaryOp.Mul)
+        | Token.Slash -> Some(BinaryOp.Div)
+        | _ -> None
+
+    match op with
+    | Some(op) ->
+        let right, tokens = readMul (tokens |> Seq.skip 1)
+        (ExprBinary(left, op, right), tokens)
+    | None -> (left, tokens)
+
+and private readUnary tokens =
+    match tokens |> Seq.head with
+    | Token.Minus ->
+        let expr, tokens = readPrimary (tokens |> Seq.skip 1)
+        (ExprUnary(UnaryOp.Neg, expr), tokens)
+    | _ -> readPrimary tokens
+
+and private readPrimary tokens =
+    let choice =
+        [ readInt; readParens ] |> List.tryPick (fun reader -> reader tokens)
+    match choice with
+    | Some(result) -> result
+    | None -> failwith $"Unexpected {tokens |> Seq.head}"
+
+and private readInt tokens =
+    match tokens |> Seq.head with
+    | Token.Int(value) -> Some(ExprInt(value), tokens |> Seq.skip 1)
+    | _ -> None
+
+and private readParens tokens =
+    match tokens |> Seq.head with
+    | Token.ParenOpen ->
+        let expr, tokens = readExpr (tokens |> Seq.skip 1)
+
+        match tokens |> Seq.head with
+        | Token.ParenClose -> Some(expr, tokens |> Seq.skip 1)
+        | token -> failwith $"Expected a ParenClose, got {token}"
+    | _ -> None
 
 let read (code: string) : Expr =
     let ast, tokens = readExpr (Lexer.tokenise code)

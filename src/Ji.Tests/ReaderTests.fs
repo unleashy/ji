@@ -54,3 +54,24 @@ let ``Reads multiplicative expressions`` () =
                 )
         )
     )
+
+[<Fact>]
+let ``Reads parenthesised expressions`` () =
+    Assert.Equal(
+        read "(1 + 2) * (3 - 4)",
+        ExprBinary(
+            left =
+                ExprBinary(
+                    left = ExprInt 1,
+                    op = BinaryOp.Add,
+                    right = ExprInt 2
+                ),
+            op = BinaryOp.Mul,
+            right =
+                ExprBinary(
+                    left = ExprInt 3,
+                    op = BinaryOp.Sub,
+                    right = ExprInt 4
+                )
+        )
+    )
