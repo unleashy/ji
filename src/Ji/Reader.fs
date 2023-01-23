@@ -17,6 +17,11 @@ open Ji.Ast
 //   <ignored>
 //   Spacing → [\r\t ]*
 
+let private (|SeqNil|SeqCons|) s =
+    match s |> Seq.tryHead with
+    | Some(head) -> SeqCons(head, s |> Seq.skip 1)
+    | None -> SeqNil
+
 module private Token =
     type T =
         | End
@@ -31,10 +36,8 @@ module private Token =
 module private Lexer =
     let private span f s =
         let rec loop f s acc =
-            match s |> Seq.tryHead with
-            | Some(head) when f head ->
-                let tail = s |> Seq.skip 1
-                loop f tail (acc + string head)
+            match s with
+            | SeqCons(head, tail) when f head -> loop f tail (acc + string head)
             | _ -> (acc, s)
 
         loop f s ""
@@ -48,16 +51,14 @@ module private Lexer =
         | _ -> Some(Token.Int(int64 text), code')
 
     let private nextOp code =
-        code
-        |> Seq.tryHead
-        |> Option.bind (function
-            | '+' -> Some(Token.Plus, code |> Seq.skip 1)
-            | '-' -> Some(Token.Minus, code |> Seq.skip 1)
-            | '*' -> Some(Token.Star, code |> Seq.skip 1)
-            | '/' -> Some(Token.Slash, code |> Seq.skip 1)
-            | '(' -> Some(Token.ParenOpen, code |> Seq.skip 1)
-            | ')' -> Some(Token.ParenClose, code |> Seq.skip 1)
-            | _ -> None)
+        match code with
+        | SeqCons('+', code) -> Some(Token.Plus, code)
+        | SeqCons('-', code) -> Some(Token.Minus, code)
+        | SeqCons('*', code) -> Some(Token.Star, code)
+        | SeqCons('/', code) -> Some(Token.Slash, code)
+        | SeqCons('(', code) -> Some(Token.ParenOpen, code)
+        | SeqCons(')', code) -> Some(Token.ParenClose, code)
+        | _ -> None
 
     let private nextFns = [ nextInt; nextOp ]
 
@@ -81,37 +82,37 @@ let rec private readExpr tokens = readAdd tokens
 and private readAdd tokens =
     let (left, tokens) = readMul tokens
 
-    let op =
-        match tokens |> Seq.head with
-        | Token.Plus -> Some(BinaryOp.Add)
-        | Token.Minus -> Some(BinaryOp.Sub)
-        | _ -> None
+    let op, tokens =
+        match tokens with
+        | SeqCons(Token.Plus, tokens) -> (Some(BinaryOp.Add), tokens)
+        | SeqCons(Token.Minus, tokens) -> (Some(BinaryOp.Sub), tokens)
+        | _ -> (None, tokens)
 
     match op with
     | Some(op) ->
-        let right, tokens = readAdd (tokens |> Seq.skip 1)
+        let right, tokens = readAdd tokens
         (ExprBinary(left, op, right), tokens)
     | None -> (left, tokens)
 
 and private readMul tokens =
     let (left, tokens) = readUnary tokens
 
-    let op =
-        match tokens |> Seq.head with
-        | Token.Star -> Some(BinaryOp.Mul)
-        | Token.Slash -> Some(BinaryOp.Div)
-        | _ -> None
+    let op, tokens =
+        match tokens with
+        | SeqCons(Token.Star, tokens) -> (Some(BinaryOp.Mul), tokens)
+        | SeqCons(Token.Slash, tokens) -> (Some(BinaryOp.Div), tokens)
+        | _ -> (None, tokens)
 
     match op with
     | Some(op) ->
-        let right, tokens = readMul (tokens |> Seq.skip 1)
+        let right, tokens = readMul tokens
         (ExprBinary(left, op, right), tokens)
     | None -> (left, tokens)
 
 and private readUnary tokens =
-    match tokens |> Seq.head with
-    | Token.Minus ->
-        let expr, tokens = readPrimary (tokens |> Seq.skip 1)
+    match tokens with
+    | SeqCons(Token.Minus, tokens) ->
+        let expr, tokens = readPrimary tokens
         (ExprUnary(UnaryOp.Neg, expr), tokens)
     | _ -> readPrimary tokens
 
@@ -123,18 +124,18 @@ and private readPrimary tokens =
     | None -> failwith $"Unexpected {tokens |> Seq.head}"
 
 and private readInt tokens =
-    match tokens |> Seq.head with
-    | Token.Int(value) -> Some(ExprInt(value), tokens |> Seq.skip 1)
+    match tokens with
+    | SeqCons(Token.Int(value), rest) -> Some(ExprInt(value), rest)
     | _ -> None
 
 and private readParens tokens =
-    match tokens |> Seq.head with
-    | Token.ParenOpen ->
-        let expr, tokens = readExpr (tokens |> Seq.skip 1)
+    match tokens with
+    | SeqCons(Token.ParenOpen, tokens) ->
+        let expr, tokens = readExpr tokens
 
-        match tokens |> Seq.head with
-        | Token.ParenClose -> Some(expr, tokens |> Seq.skip 1)
-        | token -> failwith $"Expected a ParenClose, got {token}"
+        match tokens with
+        | SeqCons(Token.ParenClose, tokens) -> Some(expr, tokens)
+        | _ -> failwith $"Expected a ParenClose, got {tokens |> Seq.head}"
     | _ -> None
 
 let read (code: string) : Expr =
