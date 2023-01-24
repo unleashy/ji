@@ -8,7 +8,7 @@ open Ji.Reader
 
 [<Property>]
 let ``Reads integers`` (num: NonNegativeInt) =
-    Assert.Equal(read $"{num}", ExprInt num.Get)
+    Assert.Equal(ExprInt num.Get, read $"{num}")
 
 [<Property>]
 let ``Skips whitespace`` () =
@@ -17,16 +17,15 @@ let ``Skips whitespace`` () =
     |> Gen.map (String.concat "")
     |> Arb.fromGen
     |> Prop.forAll
-    <| fun white -> Assert.Equal(read $"{white}1{white}", ExprInt 1)
+    <| fun white -> Assert.Equal(ExprInt 1, read $"{white}1{white}")
 
 [<Fact>]
 let ``Reads negations`` () =
-    Assert.Equal(read "-1234", ExprUnary(op = UnaryOp.Neg, expr = ExprInt 1234))
+    Assert.Equal(ExprUnary(op = UnaryOp.Neg, expr = ExprInt 1234), read "-1234")
 
 [<Fact>]
 let ``Reads additive expressions`` () =
     Assert.Equal(
-        read "56 + 78 - 90",
         ExprBinary(
             left =
                 ExprBinary(
@@ -36,13 +35,13 @@ let ``Reads additive expressions`` () =
                 ),
             op = BinaryOp.Sub,
             right = ExprInt 90
-        )
+        ),
+        read "56 + 78 - 90"
     )
 
 [<Fact>]
 let ``Reads multiplicative expressions`` () =
     Assert.Equal(
-        read "12 * 34 / 56",
         ExprBinary(
             left =
                 ExprBinary(
@@ -52,13 +51,13 @@ let ``Reads multiplicative expressions`` () =
                 ),
             op = BinaryOp.Div,
             right = ExprInt 56
-        )
+        ),
+        read "12 * 34 / 56"
     )
 
 [<Fact>]
 let ``Reads parenthesised expressions`` () =
     Assert.Equal(
-        read "(1 + 2) * (3 - 4)",
         ExprBinary(
             left =
                 ExprBinary(
@@ -73,5 +72,6 @@ let ``Reads parenthesised expressions`` () =
                     op = BinaryOp.Sub,
                     right = ExprInt 4
                 )
-        )
+        ),
+        read "(1 + 2) * (3 - 4)"
     )
