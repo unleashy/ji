@@ -7,7 +7,7 @@ Trying to learn F# by making an interpreter.
 - [ ] Reader
   - [x] Read integers
   - [x] Read arithmetic operators
-  - [ ] Read parentheses
+  - [x] Read parentheses
 - [ ] Evaluator
   - [x] Evaluate integers
   - [x] Evaluate arithmetic operations
