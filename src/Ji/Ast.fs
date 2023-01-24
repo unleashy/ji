@@ -1,16 +1,17 @@
 module Ji.Ast
 
-module UnaryOp =
-    type T = Neg
+[<RequireQualifiedAccess>]
+type UnaryOp = Neg
 
-module BinaryOp =
-    type T =
-        | Add
-        | Sub
-        | Mul
-        | Div
+[<RequireQualifiedAccess>]
+type BinaryOp =
+    | Add
+    | Sub
+    | Mul
+    | Div
 
+[<RequireQualifiedAccess>]
 type Expr =
-    | ExprInt of int64
-    | ExprUnary of op: UnaryOp.T * expr: Expr
-    | ExprBinary of left: Expr * op: BinaryOp.T * right: Expr
+    | Int of int64
+    | Unary of op: UnaryOp * expr: Expr
+    | Binary of left: Expr * op: BinaryOp * right: Expr

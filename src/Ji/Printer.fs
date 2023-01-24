@@ -1,7 +1,7 @@
 module Ji.Printer
 
-open Ji.Value
+open Ji.Values
 
 let print (value: Value) : string =
     match value with
-    | ValueInt(n) -> string n
+    | Value.Int(n) -> string n

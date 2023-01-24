@@ -4,48 +4,52 @@ open Xunit
 open FsCheck
 open FsCheck.Xunit
 open Ji.Ast
-open Ji.Value
+open Ji.Values
 open Ji.Evaluator
 
 [<Property>]
 let ``Evaluates integers`` (num: NonNegativeInt) =
-    Assert.Equal(ValueInt num.Get, ExprInt num.Get |> eval)
+    Assert.Equal(Value.Int num.Get, Expr.Int num.Get |> eval)
 
 [<Fact>]
 let ``Evaluates negation`` () =
     Assert.Equal(
-        ValueInt -1234,
-        ExprUnary(op = UnaryOp.Neg, expr = ExprInt 1234) |> eval
+        Value.Int -1234,
+        Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 1234) |> eval
     )
 
 [<Fact>]
 let ``Evaluates addition`` () =
     Assert.Equal(
-        ValueInt(int64 (12 + 34)),
-        ExprBinary(left = ExprInt 12, op = BinaryOp.Add, right = ExprInt 34)
+        Value.Int(int64 (12 + 34)),
+        Expr.Binary(left = Expr.Int 12, op = BinaryOp.Add, right = Expr.Int 34)
         |> eval
     )
 
 [<Fact>]
 let ``Evaluates subtraction`` () =
     Assert.Equal(
-        ValueInt(int64 (99 - 11)),
-        ExprBinary(left = ExprInt 99, op = BinaryOp.Sub, right = ExprInt 11)
+        Value.Int(int64 (99 - 11)),
+        Expr.Binary(left = Expr.Int 99, op = BinaryOp.Sub, right = Expr.Int 11)
         |> eval
     )
 
 [<Fact>]
 let ``Evaluates multiplication`` () =
     Assert.Equal(
-        ValueInt(int64 (123 * 123)),
-        ExprBinary(left = ExprInt 123, op = BinaryOp.Mul, right = ExprInt 123)
+        Value.Int(int64 (123 * 123)),
+        Expr.Binary(
+            left = Expr.Int 123,
+            op = BinaryOp.Mul,
+            right = Expr.Int 123
+        )
         |> eval
     )
 
 [<Fact>]
 let ``Evaluates division`` () =
     Assert.Equal(
-        ValueInt(int64 (80 / 5)),
-        ExprBinary(left = ExprInt 80, op = BinaryOp.Div, right = ExprInt 5)
+        Value.Int(int64 (80 / 5)),
+        Expr.Binary(left = Expr.Int 80, op = BinaryOp.Div, right = Expr.Int 5)
         |> eval
     )

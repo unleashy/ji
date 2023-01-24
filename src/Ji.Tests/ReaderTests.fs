@@ -8,7 +8,7 @@ open Ji.Reader
 
 [<Property>]
 let ``Reads integers`` (num: NonNegativeInt) =
-    Assert.Equal(ExprInt num.Get, read $"{num}")
+    Assert.Equal(Expr.Int num.Get, read $"{num}")
 
 [<Property>]
 let ``Skips whitespace`` () =
@@ -17,24 +17,24 @@ let ``Skips whitespace`` () =
     |> Gen.map (String.concat "")
     |> Arb.fromGen
     |> Prop.forAll
-    <| fun white -> Assert.Equal(ExprInt 1, read $"{white}1{white}")
+    <| fun white -> Assert.Equal(Expr.Int 1, read $"{white}1{white}")
 
 [<Fact>]
 let ``Reads negations`` () =
-    Assert.Equal(ExprUnary(op = UnaryOp.Neg, expr = ExprInt 1234), read "-1234")
+    Assert.Equal(Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 1234), read "-1234")
 
 [<Fact>]
 let ``Reads additive expressions`` () =
     Assert.Equal(
-        ExprBinary(
+        Expr.Binary(
             left =
-                ExprBinary(
-                    left = ExprInt 56,
+                Expr.Binary(
+                    left = Expr.Int 56,
                     op = BinaryOp.Add,
-                    right = ExprInt 78
+                    right = Expr.Int 78
                 ),
             op = BinaryOp.Sub,
-            right = ExprInt 90
+            right = Expr.Int 90
         ),
         read "56 + 78 - 90"
     )
@@ -42,15 +42,15 @@ let ``Reads additive expressions`` () =
 [<Fact>]
 let ``Reads multiplicative expressions`` () =
     Assert.Equal(
-        ExprBinary(
+        Expr.Binary(
             left =
-                ExprBinary(
-                    left = ExprInt 12,
+                Expr.Binary(
+                    left = Expr.Int 12,
                     op = BinaryOp.Mul,
-                    right = ExprInt 34
+                    right = Expr.Int 34
                 ),
             op = BinaryOp.Div,
-            right = ExprInt 56
+            right = Expr.Int 56
         ),
         read "12 * 34 / 56"
     )
@@ -58,19 +58,19 @@ let ``Reads multiplicative expressions`` () =
 [<Fact>]
 let ``Reads parenthesised expressions`` () =
     Assert.Equal(
-        ExprBinary(
+        Expr.Binary(
             left =
-                ExprBinary(
-                    left = ExprInt 1,
+                Expr.Binary(
+                    left = Expr.Int 1,
                     op = BinaryOp.Add,
-                    right = ExprInt 2
+                    right = Expr.Int 2
                 ),
             op = BinaryOp.Mul,
             right =
-                ExprBinary(
-                    left = ExprInt 3,
+                Expr.Binary(
+                    left = Expr.Int 3,
                     op = BinaryOp.Sub,
-                    right = ExprInt 4
+                    right = Expr.Int 4
                 )
         ),
         read "(1 + 2) * (3 - 4)"

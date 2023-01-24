@@ -22,16 +22,16 @@ let private (|SeqNil|SeqCons|) s =
     | Some(head) -> SeqCons(head, s |> Seq.skip 1)
     | None -> SeqNil
 
-module private Token =
-    type T =
-        | End
-        | Int of int64
-        | Plus
-        | Minus
-        | Star
-        | Slash
-        | ParenOpen
-        | ParenClose
+[<RequireQualifiedAccess>]
+type private Token =
+    | End
+    | Int of int64
+    | Plus
+    | Minus
+    | Star
+    | Slash
+    | ParenOpen
+    | ParenClose
 
 module private Lexer =
     let private span f s =
@@ -73,7 +73,7 @@ module private Lexer =
         | None when code |> Seq.isEmpty -> (Token.End, Seq.empty)
         | None -> failwith $"Unknown character '{Seq.head code}'"
 
-    let tokenise (code: string) : seq<Token.T> =
+    let tokenise (code: string) : seq<Token> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
         unfoldInfinite nextToken code
 
@@ -92,7 +92,7 @@ and private readAdd tokens =
         match op with
         | Some(op) ->
             let right, tokens = readMul tokens
-            loop (ExprBinary(prevExpr, op, right)) tokens
+            loop (Expr.Binary(prevExpr, op, right)) tokens
         | None -> (prevExpr, tokens)
 
     loop left tokens
@@ -110,7 +110,7 @@ and private readMul tokens =
         match op with
         | Some(op) ->
             let right, tokens = readUnary tokens
-            loop (ExprBinary(prevExpr, op, right)) tokens
+            loop (Expr.Binary(prevExpr, op, right)) tokens
         | None -> (prevExpr, tokens)
 
     loop left tokens
@@ -119,7 +119,7 @@ and private readUnary tokens =
     match tokens with
     | SeqCons(Token.Minus, tokens) ->
         let expr, tokens = readPrimary tokens
-        (ExprUnary(UnaryOp.Neg, expr), tokens)
+        (Expr.Unary(UnaryOp.Neg, expr), tokens)
     | _ -> readPrimary tokens
 
 and private readPrimary tokens =
@@ -131,7 +131,7 @@ and private readPrimary tokens =
 
 and private readInt tokens =
     match tokens with
-    | SeqCons(Token.Int(value), rest) -> Some(ExprInt(value), rest)
+    | SeqCons(Token.Int(value), rest) -> Some(Expr.Int(value), rest)
     | _ -> None
 
 and private readParens tokens =
