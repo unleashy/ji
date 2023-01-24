@@ -82,32 +82,38 @@ let rec private readExpr tokens = readAdd tokens
 and private readAdd tokens =
     let (left, tokens) = readMul tokens
 
-    let op, tokens =
-        match tokens with
-        | SeqCons(Token.Plus, tokens) -> (Some(BinaryOp.Add), tokens)
-        | SeqCons(Token.Minus, tokens) -> (Some(BinaryOp.Sub), tokens)
-        | _ -> (None, tokens)
+    let rec loop prevExpr tokens =
+        let op, tokens =
+            match tokens with
+            | SeqCons(Token.Plus, tokens) -> (Some(BinaryOp.Add), tokens)
+            | SeqCons(Token.Minus, tokens) -> (Some(BinaryOp.Sub), tokens)
+            | _ -> (None, tokens)
 
-    match op with
-    | Some(op) ->
-        let right, tokens = readAdd tokens
-        (ExprBinary(left, op, right), tokens)
-    | None -> (left, tokens)
+        match op with
+        | Some(op) ->
+            let right, tokens = readMul tokens
+            loop (ExprBinary(prevExpr, op, right)) tokens
+        | None -> (prevExpr, tokens)
+
+    loop left tokens
 
 and private readMul tokens =
     let (left, tokens) = readUnary tokens
 
-    let op, tokens =
-        match tokens with
-        | SeqCons(Token.Star, tokens) -> (Some(BinaryOp.Mul), tokens)
-        | SeqCons(Token.Slash, tokens) -> (Some(BinaryOp.Div), tokens)
-        | _ -> (None, tokens)
+    let rec loop prevExpr tokens =
+        let op, tokens =
+            match tokens with
+            | SeqCons(Token.Star, tokens) -> (Some(BinaryOp.Mul), tokens)
+            | SeqCons(Token.Slash, tokens) -> (Some(BinaryOp.Div), tokens)
+            | _ -> (None, tokens)
 
-    match op with
-    | Some(op) ->
-        let right, tokens = readMul tokens
-        (ExprBinary(left, op, right), tokens)
-    | None -> (left, tokens)
+        match op with
+        | Some(op) ->
+            let right, tokens = readUnary tokens
+            loop (ExprBinary(prevExpr, op, right)) tokens
+        | None -> (prevExpr, tokens)
+
+    loop left tokens
 
 and private readUnary tokens =
     match tokens with

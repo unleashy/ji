@@ -28,14 +28,14 @@ let ``Reads additive expressions`` () =
     Assert.Equal(
         read "56 + 78 - 90",
         ExprBinary(
-            left = ExprInt 56,
-            op = BinaryOp.Add,
-            right =
+            left =
                 ExprBinary(
-                    left = ExprInt 78,
-                    op = BinaryOp.Sub,
-                    right = ExprInt 90
-                )
+                    left = ExprInt 56,
+                    op = BinaryOp.Add,
+                    right = ExprInt 78
+                ),
+            op = BinaryOp.Sub,
+            right = ExprInt 90
         )
     )
 
@@ -44,14 +44,14 @@ let ``Reads multiplicative expressions`` () =
     Assert.Equal(
         read "12 * 34 / 56",
         ExprBinary(
-            left = ExprInt 12,
-            op = BinaryOp.Mul,
-            right =
+            left =
                 ExprBinary(
-                    left = ExprInt 34,
-                    op = BinaryOp.Div,
-                    right = ExprInt 56
-                )
+                    left = ExprInt 12,
+                    op = BinaryOp.Mul,
+                    right = ExprInt 34
+                ),
+            op = BinaryOp.Div,
+            right = ExprInt 56
         )
     )
 
