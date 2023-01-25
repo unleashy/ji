@@ -11,8 +11,14 @@ open Ji.Ast
 //   ExprUnary → "-"? Primary
 //
 //   Primary → Int
+//           / Function
 //           / "(" Expr ")"
+//
 //   Int → [0-9]+
+//
+//   Function → "λ" Params "→" Expr
+//   Params   → Name*
+//   Name     → [A-Za-z_] [A-Za-z0-9_]*
 //
 //   <ignored>
 //   Spacing → [\r\t ]*
@@ -26,12 +32,15 @@ let private (|SeqNil|SeqCons|) s =
 type private Token =
     | End
     | Int of int64
+    | Name of string
     | Plus
     | Minus
     | Star
     | Slash
     | ParenOpen
     | ParenClose
+    | Lambda
+    | ArrowRight
 
 module private Lexer =
     let private span f s =
@@ -50,6 +59,19 @@ module private Lexer =
         | "" -> None
         | _ -> Some(Token.Int(int64 text), code')
 
+    let private isNameStart c =
+        (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c = '_'
+
+    let private isNameContinue c = isNameStart c || isDigit c
+
+    let private nextName code =
+        let text, code' = code |> span isNameStart
+        match text with
+        | "" -> None
+        | _ ->
+            let text', code'' = code' |> span isNameContinue
+            Some(Token.Name(text + text'), code'')
+
     let private nextOp code =
         match code with
         | SeqCons('+', code) -> Some(Token.Plus, code)
@@ -58,9 +80,11 @@ module private Lexer =
         | SeqCons('/', code) -> Some(Token.Slash, code)
         | SeqCons('(', code) -> Some(Token.ParenOpen, code)
         | SeqCons(')', code) -> Some(Token.ParenClose, code)
+        | SeqCons('λ', code) -> Some(Token.Lambda, code)
+        | SeqCons('→', code) -> Some(Token.ArrowRight, code)
         | _ -> None
 
-    let private nextFns = [ nextInt; nextOp ]
+    let private nextFns = [ nextInt; nextName; nextOp ]
 
     let private isSpacing c = List.contains c [ '\r'; '\t'; ' ' ]
 
@@ -124,7 +148,8 @@ and private readUnary tokens =
 
 and private readPrimary tokens =
     let choice =
-        [ readInt; readParens ] |> List.tryPick (fun reader -> reader tokens)
+        [ readInt; readFunction; readParens ]
+        |> List.tryPick (fun reader -> reader tokens)
     match choice with
     | Some(result) -> result
     | None -> failwith $"Unexpected {tokens |> Seq.head}"
@@ -133,6 +158,26 @@ and private readInt tokens =
     match tokens with
     | SeqCons(Token.Int(value), rest) -> Some(Expr.Int(value), rest)
     | _ -> None
+
+and private readFunction tokens =
+    match tokens with
+    | SeqCons(Token.Lambda, tokens) ->
+        let paramNames, tokens = readParams tokens
+
+        match tokens with
+        | SeqCons(Token.ArrowRight, tokens) ->
+            let body, tokens = readExpr tokens
+            Some(Expr.Function(paramNames, body), tokens)
+        | _ -> failwith $"Expected an '→' for lambda, got {tokens |> Seq.head}"
+    | _ -> None
+
+and private readParams tokens =
+    let rec loop tokens acc =
+        match tokens with
+        | SeqCons(Token.Name name, tokens) -> loop tokens (acc @ [ name ])
+        | _ -> (acc, tokens)
+
+    loop tokens []
 
 and private readParens tokens =
     match tokens with

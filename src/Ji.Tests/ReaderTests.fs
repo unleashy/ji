@@ -21,7 +21,10 @@ let ``Skips whitespace`` () =
 
 [<Fact>]
 let ``Reads negations`` () =
-    Assert.Equal(Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 1234), read "-1234")
+    Assert.Equal(
+        Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 1234),
+        read "-1234"
+    )
 
 [<Fact>]
 let ``Reads additive expressions`` () =
@@ -75,3 +78,35 @@ let ``Reads parenthesised expressions`` () =
         ),
         read "(1 + 2) * (3 - 4)"
     )
+
+[<Fact>]
+let ``Reads functions with no parameters`` () =
+    Assert.Equal(
+        Expr.Function(paramNames = [], body = Expr.Int 1),
+        read "λ → 1"
+    )
+
+let nameStartChars = '_' :: [ 'A' .. 'Z' ] @ [ 'a' .. 'z' ]
+let nameContinueChars = nameStartChars @ [ '0' .. '9' ]
+
+let genNameStart =
+    Gen.elements nameStartChars
+    |> Gen.nonEmptyListOf
+    |> Gen.map (List.map string >> String.concat "")
+
+let genNameContinue =
+    Gen.elements nameContinueChars
+    |> Gen.listOf
+    |> Gen.map (List.map string >> String.concat "")
+
+let genName = Gen.map2 (+) genNameStart genNameContinue
+
+[<Property(EndSize = 5)>]
+let ``Reads functions with parameters`` () =
+    genName |> Gen.nonEmptyListOf |> Arb.fromGen |> Prop.forAll
+    <| fun paramNames ->
+        let paramNamesCode = paramNames |> String.concat " "
+        Assert.Equal(
+            Expr.Function(paramNames, body = Expr.Int 99),
+            read $"λ{paramNamesCode} → 99"
+        )

@@ -17,5 +17,6 @@ let private evalBinary left op right =
 let rec eval (expr: Expr) : Value =
     match expr with
     | Expr.Int(n) -> Value.Int(n)
+    | Expr.Function _ -> raise (System.NotImplementedException())
     | Expr.Unary(op, expr) -> evalUnary op (eval expr)
     | Expr.Binary(left, op, right) -> evalBinary (eval left) op (eval right)
