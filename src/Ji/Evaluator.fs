@@ -19,4 +19,5 @@ let rec eval (expr: Expr) : Value =
     | Expr.Int(n) -> Value.Int(n)
     | Expr.Function _ -> raise (System.NotImplementedException())
     | Expr.Unary(op, expr) -> evalUnary op (eval expr)
+    | Expr.Call _ -> raise (System.NotImplementedException())
     | Expr.Binary(left, op, right) -> evalBinary (eval left) op (eval right)

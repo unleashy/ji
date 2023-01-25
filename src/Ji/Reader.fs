@@ -8,7 +8,10 @@ open Ji.Ast
 //   Expr → ExprAdd
 //   ExprAdd → ExprMul ([+-] ExprMul)*
 //   ExprMul → ExprUnary ([*/] ExprUnary)*
-//   ExprUnary → "-"? Primary
+//   ExprUnary → "-"? ExprCall
+//
+//   ExprCall → Primary ("(" Args? ")")*
+//   Args → Expr ("," Expr)*
 //
 //   Primary → Int
 //           / Function
@@ -17,7 +20,7 @@ open Ji.Ast
 //   Int → [0-9]+
 //
 //   Function → "λ" Params "→" Expr
-//   Params   → Name*
+//   Params   → "(" Name* ")"
 //   Name     → [A-Za-z_] [A-Za-z0-9_]*
 //
 //   <ignored>
@@ -41,6 +44,7 @@ type private Token =
     | ParenClose
     | Lambda
     | ArrowRight
+    | Comma
 
 module private Lexer =
     let private span f s =
@@ -82,6 +86,7 @@ module private Lexer =
         | SeqCons(')', code) -> Some(Token.ParenClose, code)
         | SeqCons('λ', code) -> Some(Token.Lambda, code)
         | SeqCons('→', code) -> Some(Token.ArrowRight, code)
+        | SeqCons(',', code) -> Some(Token.Comma, code)
         | _ -> None
 
     let private nextFns = [ nextInt; nextName; nextOp ]
@@ -142,9 +147,40 @@ and private readMul tokens =
 and private readUnary tokens =
     match tokens with
     | SeqCons(Token.Minus, tokens) ->
-        let expr, tokens = readPrimary tokens
+        let expr, tokens = readCall tokens
         (Expr.Unary(UnaryOp.Neg, expr), tokens)
-    | _ -> readPrimary tokens
+    | _ -> readCall tokens
+
+and private readCall tokens =
+    let rec loop prevExpr tokens =
+        match readArgs tokens with
+        | Some(args, tokens) -> loop (Expr.Call(prevExpr, args)) tokens
+        | None -> (prevExpr, tokens)
+
+    let left, tokens = readPrimary tokens
+    loop left tokens
+
+and private readArgs tokens =
+    match tokens with
+    | SeqCons(Token.ParenOpen, tokens) ->
+        match tokens with
+        | SeqCons(Token.ParenClose, tokens) -> Some([], tokens)
+        | _ ->
+            let exprs, tokens = readExprList tokens
+
+            match tokens with
+            | SeqCons(Token.ParenClose, tokens) -> Some(exprs, tokens)
+            | _ -> failwith $"Expected a ')', got {tokens |> Seq.head}"
+    | _ -> None
+
+and private readExprList tokens =
+    let rec loop tokens acc =
+        let expr, tokens = readExpr tokens
+        match tokens with
+        | SeqCons(Token.Comma, tokens) -> loop tokens (acc @ [ expr ])
+        | _ -> (acc @ [ expr ], tokens)
+
+    loop tokens []
 
 and private readPrimary tokens =
     let choice =
@@ -162,7 +198,15 @@ and private readInt tokens =
 and private readFunction tokens =
     match tokens with
     | SeqCons(Token.Lambda, tokens) ->
-        let paramNames, tokens = readParams tokens
+        let paramNames, tokens =
+            match tokens with
+            | SeqCons(Token.ParenOpen, tokens) ->
+                let paramNames, tokens = readParams tokens
+
+                match tokens with
+                | SeqCons(Token.ParenClose, tokens) -> (paramNames, tokens)
+                | _ -> failwith $"Expected a ')', got {tokens |> Seq.head}"
+            | _ -> ([], tokens)
 
         match tokens with
         | SeqCons(Token.ArrowRight, tokens) ->
@@ -174,7 +218,10 @@ and private readFunction tokens =
 and private readParams tokens =
     let rec loop tokens acc =
         match tokens with
-        | SeqCons(Token.Name name, tokens) -> loop tokens (acc @ [ name ])
+        | SeqCons(Token.Name name, tokens) ->
+            match tokens with
+            | SeqCons(Token.Comma, tokens) -> loop tokens (acc @ [ name ])
+            | _ -> (acc @ [ name ], tokens)
         | _ -> (acc, tokens)
 
     loop tokens []
@@ -186,7 +233,7 @@ and private readParens tokens =
 
         match tokens with
         | SeqCons(Token.ParenClose, tokens) -> Some(expr, tokens)
-        | _ -> failwith $"Expected a ParenClose, got {tokens |> Seq.head}"
+        | _ -> failwith $"Expected a ')', got {tokens |> Seq.head}"
     | _ -> None
 
 let read (code: string) : Expr =

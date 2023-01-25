@@ -103,10 +103,58 @@ let genName = Gen.map2 (+) genNameStart genNameContinue
 
 [<Property(EndSize = 5)>]
 let ``Reads functions with parameters`` () =
-    genName |> Gen.nonEmptyListOf |> Arb.fromGen |> Prop.forAll
+    genName |> Gen.listOf |> Arb.fromGen |> Prop.forAll
     <| fun paramNames ->
-        let paramNamesCode = paramNames |> String.concat " "
+        let paramNamesCode = paramNames |> String.concat ", "
         Assert.Equal(
             Expr.Function(paramNames, body = Expr.Int 99),
-            read $"λ{paramNamesCode} → 99"
+            read $"λ({paramNamesCode}) → 99"
         )
+
+[<Fact>]
+let ``Reads function calls with no arguments`` () =
+    Assert.Equal(
+        Expr.Call(
+            callee = Expr.Function(paramNames = [], body = Expr.Int 1),
+            args = []
+        ),
+        read "(λ() → 1)()"
+    )
+
+[<Fact>]
+let ``Reads function calls with one argument`` () =
+    Assert.Equal(
+        Expr.Call(callee = Expr.Int 9, args = [ Expr.Int 8 ]),
+        read "9(8)"
+    )
+
+[<Fact>]
+let ``Reads function calls with many arguments`` () =
+    Assert.Equal(
+        Expr.Call(
+            callee = Expr.Int 5,
+            args =
+                [ Expr.Int 1
+                  Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 2)
+                  Expr.Binary(
+                      left = Expr.Int 3,
+                      op = BinaryOp.Add,
+                      right = Expr.Int 4
+                  ) ]
+        ),
+        read "5(1, -2, 3 + 4)"
+    )
+
+[<Fact>]
+let ``Reads function call chains`` () =
+    Assert.Equal(
+        Expr.Call(
+            callee =
+                Expr.Call(
+                    callee = Expr.Call(callee = Expr.Int 1, args = []),
+                    args = [ Expr.Int 2 ]
+                ),
+            args = [ Expr.Int 3; Expr.Int 4 ]
+        ),
+        read "1()(2)(3, 4)"
+    )
