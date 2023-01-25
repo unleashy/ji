@@ -14,8 +14,8 @@ open Ji.Ast
 //   Args → Expr ("," Expr)*
 //
 //   Primary → Int
-//           / Function
-//           / "(" Expr ")"
+//           | Function
+//           | "(" Expr ")"
 //
 //   Int → [0-9]+
 //
@@ -109,8 +109,6 @@ module private Lexer =
 let rec private readExpr tokens = readAdd tokens
 
 and private readAdd tokens =
-    let (left, tokens) = readMul tokens
-
     let rec loop prevExpr tokens =
         let op, tokens =
             match tokens with
@@ -124,11 +122,10 @@ and private readAdd tokens =
             loop (Expr.Binary(prevExpr, op, right)) tokens
         | None -> (prevExpr, tokens)
 
+    let left, tokens = readMul tokens
     loop left tokens
 
 and private readMul tokens =
-    let (left, tokens) = readUnary tokens
-
     let rec loop prevExpr tokens =
         let op, tokens =
             match tokens with
@@ -142,6 +139,7 @@ and private readMul tokens =
             loop (Expr.Binary(prevExpr, op, right)) tokens
         | None -> (prevExpr, tokens)
 
+    let left, tokens = readUnary tokens
     loop left tokens
 
 and private readUnary tokens =
