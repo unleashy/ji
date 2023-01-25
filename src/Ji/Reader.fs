@@ -14,14 +14,16 @@ open Ji.Ast
 //   Args → Expr ("," Expr)*
 //
 //   Primary → Int
+//           | Name
 //           | Function
 //           | "(" Expr ")"
 //
 //   Int → [0-9]+
 //
+//   Name → [A-Za-z_] [A-Za-z0-9_]*
+//
 //   Function → "λ" Params "→" Expr
 //   Params   → "(" Name* ")"
-//   Name     → [A-Za-z_] [A-Za-z0-9_]*
 //
 //   <ignored>
 //   Spacing → [\r\t ]*
@@ -182,7 +184,7 @@ and private readExprList tokens =
 
 and private readPrimary tokens =
     let choice =
-        [ readInt; readFunction; readParens ]
+        [ readInt; readName; readFunction; readParens ]
         |> List.tryPick (fun reader -> reader tokens)
     match choice with
     | Some(result) -> result
@@ -191,6 +193,11 @@ and private readPrimary tokens =
 and private readInt tokens =
     match tokens with
     | SeqCons(Token.Int(value), rest) -> Some(Expr.Int(value), rest)
+    | _ -> None
+
+and private readName tokens =
+    match tokens with
+    | SeqCons(Token.Name(value), rest) -> Some(Expr.Name(value), rest)
     | _ -> None
 
 and private readFunction tokens =

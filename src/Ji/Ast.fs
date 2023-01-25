@@ -13,6 +13,7 @@ type BinaryOp =
 [<RequireQualifiedAccess>]
 type Expr =
     | Int of int64
+    | Name of string
     | Function of paramNames: string list * body: Expr
     | Unary of op: UnaryOp * expr: Expr
     | Call of callee: Expr * args: Expr list

@@ -19,6 +19,26 @@ let ``Skips whitespace`` () =
     |> Prop.forAll
     <| fun white -> Assert.Equal(Expr.Int 1, read $"{white}1{white}")
 
+let nameStartChars = '_' :: [ 'A' .. 'Z' ] @ [ 'a' .. 'z' ]
+let nameContinueChars = nameStartChars @ [ '0' .. '9' ]
+
+let genNameStart =
+    Gen.elements nameStartChars
+    |> Gen.nonEmptyListOf
+    |> Gen.map (List.map string >> String.concat "")
+
+let genNameContinue =
+    Gen.elements nameContinueChars
+    |> Gen.listOf
+    |> Gen.map (List.map string >> String.concat "")
+
+let genName = Gen.map2 (+) genNameStart genNameContinue
+
+[<Property>]
+let ``Reads names`` () =
+    genName |> Arb.fromGen |> Prop.forAll
+    <| fun name -> Assert.Equal(Expr.Name name, read $"{name}")
+
 [<Fact>]
 let ``Reads negations`` () =
     Assert.Equal(
@@ -86,21 +106,6 @@ let ``Reads functions with no parameters`` () =
         read "λ → 1"
     )
 
-let nameStartChars = '_' :: [ 'A' .. 'Z' ] @ [ 'a' .. 'z' ]
-let nameContinueChars = nameStartChars @ [ '0' .. '9' ]
-
-let genNameStart =
-    Gen.elements nameStartChars
-    |> Gen.nonEmptyListOf
-    |> Gen.map (List.map string >> String.concat "")
-
-let genNameContinue =
-    Gen.elements nameContinueChars
-    |> Gen.listOf
-    |> Gen.map (List.map string >> String.concat "")
-
-let genName = Gen.map2 (+) genNameStart genNameContinue
-
 [<Property(EndSize = 5)>]
 let ``Reads functions with parameters`` () =
     genName |> Gen.listOf |> Arb.fromGen |> Prop.forAll
@@ -124,15 +129,15 @@ let ``Reads function calls with no arguments`` () =
 [<Fact>]
 let ``Reads function calls with one argument`` () =
     Assert.Equal(
-        Expr.Call(callee = Expr.Int 9, args = [ Expr.Int 8 ]),
-        read "9(8)"
+        Expr.Call(callee = Expr.Name "f", args = [ Expr.Int 8 ]),
+        read "f(8)"
     )
 
 [<Fact>]
 let ``Reads function calls with many arguments`` () =
     Assert.Equal(
         Expr.Call(
-            callee = Expr.Int 5,
+            callee = Expr.Name "g",
             args =
                 [ Expr.Int 1
                   Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 2)
@@ -142,7 +147,7 @@ let ``Reads function calls with many arguments`` () =
                       right = Expr.Int 4
                   ) ]
         ),
-        read "5(1, -2, 3 + 4)"
+        read "g(1, -2, 3 + 4)"
     )
 
 [<Fact>]
@@ -151,10 +156,10 @@ let ``Reads function call chains`` () =
         Expr.Call(
             callee =
                 Expr.Call(
-                    callee = Expr.Call(callee = Expr.Int 1, args = []),
+                    callee = Expr.Call(callee = Expr.Name "h", args = []),
                     args = [ Expr.Int 2 ]
                 ),
             args = [ Expr.Int 3; Expr.Int 4 ]
         ),
-        read "1()(2)(3, 4)"
+        read "h()(2)(3, 4)"
     )
