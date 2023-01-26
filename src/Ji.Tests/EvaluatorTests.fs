@@ -78,3 +78,52 @@ type EvaluatorTests() =
             Expr.Function(paramNames = [ "x" ], body = Expr.Name "x")
             |> evalInEmptyEnv
         )
+
+    [<Fact>]
+    let ``Evaluates function calls with no parameters`` () =
+        Assert.Equal(
+            Value.Int 42,
+            Expr.Call(
+                callee = Expr.Function(paramNames = [], body = Expr.Int 42),
+                args = []
+            )
+            |> evalInEmptyEnv
+        )
+
+    [<Fact>]
+    let ``Evaluates function calls with a single parameter`` () =
+        Assert.Equal(
+            Value.Int 9999,
+            Expr.Call(
+                callee =
+                    Expr.Function(paramNames = [ "x" ], body = Expr.Name "x"),
+                args = [ Expr.Int 9999 ]
+            )
+            |> evalInEmptyEnv
+        )
+
+    [<Fact>]
+    let ``Evaluates function calls with multiple parameters`` () =
+        Assert.Equal(
+            Value.Int(2L + 5L - 7L),
+            // (λx y z → x + y - z) 2 5 7
+            Expr.Call(
+                callee =
+                    Expr.Function(
+                        paramNames = [ "x"; "y"; "z" ],
+                        body =
+                            Expr.Binary(
+                                left =
+                                    Expr.Binary(
+                                        left = Expr.Name "x",
+                                        op = BinaryOp.Add,
+                                        right = Expr.Name "y"
+                                    ),
+                                op = BinaryOp.Sub,
+                                right = Expr.Name "z"
+                            )
+                    ),
+                args = [ Expr.Int 2; Expr.Int 5; Expr.Int 7 ]
+            )
+            |> evalInEmptyEnv
+        )

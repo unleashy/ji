@@ -21,9 +21,27 @@ let private evalBinary left op right =
 let rec eval (env: Env.T) (expr: Expr) : Value =
     match expr with
     | Expr.Int(n) -> Value.Int(n)
-    | Expr.Name(n) -> raise (System.NotImplementedException())
+
+    | Expr.Name(name) ->
+        match env |> Env.get name with
+        | Some(value) -> value
+        | None -> failwith $"{name} is not in scope"
+
     | Expr.Function(paramNames, body) -> Value.Function(paramNames, body)
+
+    | Expr.Call(callee, args) ->
+        match eval env callee with
+        | Value.Function(parameters, body) ->
+            if parameters.Length = args.Length then
+                let evalArgs = args |> List.map (eval env)
+                let funEnv = env |> Env.put (List.zip parameters evalArgs)
+                eval funEnv body
+            else
+                failwith
+                    $"Expected {parameters.Length} arguments, but only {args.Length} were provided"
+        | _ -> failwith $"Cannot call non-function value {callee}"
+
     | Expr.Unary(op, expr) -> evalUnary op (eval env expr)
-    | Expr.Call _ -> raise (System.NotImplementedException())
+
     | Expr.Binary(left, op, right) ->
         evalBinary (eval env left) op (eval env right)
