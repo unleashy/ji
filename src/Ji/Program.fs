@@ -2,7 +2,7 @@ open System
 open Ji
 
 let rep (code: string) =
-    code |> Reader.read |> Evaluator.eval |> Printer.print
+    code |> Reader.read |> Evaluator.eval Env.empty |> Printer.print
 
 [<EntryPoint>]
 let main _ =

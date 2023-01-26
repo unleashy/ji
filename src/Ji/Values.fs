@@ -1,4 +1,6 @@
 module Ji.Values
 
 [<RequireQualifiedAccess>]
-type Value = Int of int64
+type Value =
+    | Int of int64
+    | Function of parameters: string list * body: Ast.Expr
