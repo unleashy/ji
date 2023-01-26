@@ -111,27 +111,17 @@ type ReaderTests() =
     let ``Reads functions with parameters`` () =
         genName |> Gen.listOf |> Arb.fromGen |> Prop.forAll
         <| fun paramNames ->
-            let paramNamesCode = paramNames |> String.concat ", "
+            let paramNamesCode = paramNames |> String.concat " "
             Assert.Equal(
                 Expr.Function(paramNames, body = Expr.Int 99),
-                read $"λ({paramNamesCode}) → 99"
+                read $"λ{paramNamesCode} → 99"
             )
-
-    [<Fact>]
-    let ``Reads function calls with no arguments`` () =
-        Assert.Equal(
-            Expr.Call(
-                callee = Expr.Function(paramNames = [], body = Expr.Int 1),
-                args = []
-            ),
-            read "(λ() → 1)()"
-        )
 
     [<Fact>]
     let ``Reads function calls with one argument`` () =
         Assert.Equal(
             Expr.Call(callee = Expr.Name "f", args = [ Expr.Int 8 ]),
-            read "f(8)"
+            read "f 8"
         )
 
     [<Fact>]
@@ -148,7 +138,7 @@ type ReaderTests() =
                           right = Expr.Int 4
                       ) ]
             ),
-            read "g(1, -2, 3 + 4)"
+            read "g 1 (-2) (3 + 4)"
         )
 
     [<Fact>]
@@ -156,11 +146,8 @@ type ReaderTests() =
         Assert.Equal(
             Expr.Call(
                 callee =
-                    Expr.Call(
-                        callee = Expr.Call(callee = Expr.Name "h", args = []),
-                        args = [ Expr.Int 2 ]
-                    ),
+                    Expr.Call(callee = Expr.Name "h", args = [ Expr.Int 2 ]),
                 args = [ Expr.Int 3; Expr.Int 4 ]
             ),
-            read "h()(2)(3, 4)"
+            read "(h 2) 3 4"
         )
