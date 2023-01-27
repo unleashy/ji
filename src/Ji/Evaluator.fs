@@ -36,20 +36,23 @@ let rec eval (env: Env.T) (expr: Expr) : Value<Env.T> =
         evalBinary (eval env left) op (eval env right)
 
 and private evalCall env parameters body args =
-    if args.Length <= parameters.Length then
+    if args.Length = parameters.Length then
+        // normal application
+        let envWithArgs = env |> Env.put (List.zip parameters args)
+        eval envWithArgs body
+    elif args.Length < parameters.Length then
+        // partial application
         let boundParams, remainingParams =
             parameters |> List.splitAt args.Length
         let envWithArgs = env |> Env.put (List.zip boundParams args)
 
-        if remainingParams |> List.isEmpty then
-            eval envWithArgs body
-        else
-            Value.Function(
-                env = envWithArgs,
-                parameters = remainingParams,
-                body = body
-            )
+        Value.Function(
+            env = envWithArgs,
+            parameters = remainingParams,
+            body = body
+        )
     else
+        // curried application
         let boundArgs, remainingArgs = args |> List.splitAt parameters.Length
         let envWithArgs = env |> Env.put (List.zip parameters boundArgs)
 
