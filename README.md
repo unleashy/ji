@@ -4,14 +4,15 @@ Trying to learn F# by making an interpreter.
 
 ## TODO
 
-- [ ] Reader
+- [x] Reader
   - [x] Read integers
   - [x] Read arithmetic operators
   - [x] Read parentheses
-- [ ] Evaluator
+- [x] Evaluator
   - [x] Evaluate integers
   - [x] Evaluate arithmetic operations
-- [ ] Add functions
+- [x] Add functions
+- [ ] Add let bindings and sequencing
 - [ ] Improve error handling and reporting
   - [ ] Use own error class/type
   - [ ] Track line/columns
