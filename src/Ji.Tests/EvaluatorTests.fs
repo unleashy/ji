@@ -73,7 +73,11 @@ type EvaluatorTests() =
     [<Fact>]
     let ``Evaluates functions`` () =
         Assert.Equal(
-            Value.Function(parameters = [ "x" ], body = Expr.Name "x"),
+            Value.Function(
+                env = Env.empty,
+                parameters = [ "x" ],
+                body = Expr.Name "x"
+            ),
             // λ(x) → x
             Expr.Function(paramNames = [ "x" ], body = Expr.Name "x")
             |> evalInEmptyEnv
@@ -124,6 +128,83 @@ type EvaluatorTests() =
                             )
                     ),
                 args = [ Expr.Int 2; Expr.Int 5; Expr.Int 7 ]
+            )
+            |> evalInEmptyEnv
+        )
+
+    [<Fact>]
+    let ``Functions are closures`` () =
+        Assert.Equal(
+            Value.Int(1L - 2L),
+            // ((λx → λy → x - y) 1) 2
+            Expr.Call(
+                callee =
+                    Expr.Call(
+                        callee =
+                            Expr.Function(
+                                paramNames = [ "x" ],
+                                body =
+                                    Expr.Function(
+                                        paramNames = [ "y" ],
+                                        body =
+                                            Expr.Binary(
+                                                left = Expr.Name "x",
+                                                op = BinaryOp.Sub,
+                                                right = Expr.Name "y"
+                                            )
+                                    )
+                            ),
+                        args = [ Expr.Int 1 ]
+                    ),
+                args = [ Expr.Int 2 ]
+            )
+            |> evalInEmptyEnv
+        )
+
+    [<Fact>]
+    let ``Functions are curried`` () =
+        let body =
+            Expr.Binary(
+                left = Expr.Name "x",
+                op = BinaryOp.Mul,
+                right = Expr.Name "y"
+            )
+
+        Assert.Equal(
+            Value.Function(
+                env = (Env.empty |> Env.put [ ("x", Value.Int 5) ]),
+                parameters = [ "y" ],
+                body = body
+            ),
+            // (λx y → x * y) 5 = (λy → 5 * y)
+            Expr.Call(
+                callee = Expr.Function(paramNames = [ "x"; "y" ], body = body),
+                args = [ Expr.Int 5 ]
+            )
+            |> evalInEmptyEnv
+        )
+
+    [<Fact>]
+    let ``Functions in curried form can be called directly`` () =
+        Assert.Equal(
+            Value.Int(2L - 1L),
+            // (λx → λy → x - y) 2 1
+            Expr.Call(
+                callee =
+                    Expr.Function(
+                        paramNames = [ "x" ],
+                        body =
+                            Expr.Function(
+                                paramNames = [ "y" ],
+                                body =
+                                    Expr.Binary(
+                                        left = Expr.Name "x",
+                                        op = BinaryOp.Sub,
+                                        right = Expr.Name "y"
+                                    )
+                            )
+                    ),
+                args = [ Expr.Int 2; Expr.Int 1 ]
             )
             |> evalInEmptyEnv
         )
