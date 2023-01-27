@@ -6,6 +6,23 @@ open FsCheck.Xunit
 open Ji.Ast
 open Ji.Reader
 
+type GenName =
+    static member String() =
+        let nameStartChars = '_' :: [ 'A' .. 'Z' ] @ [ 'a' .. 'z' ]
+        let nameContinueChars = nameStartChars @ [ '0' .. '9' ]
+
+        let genNameStart =
+            Gen.elements nameStartChars
+            |> Gen.nonEmptyListOf
+            |> Gen.map (List.map string >> String.concat "")
+
+        let genNameContinue =
+            Gen.elements nameContinueChars
+            |> Gen.listOf
+            |> Gen.map (List.map string >> String.concat "")
+
+        Gen.map2 (+) genNameStart genNameContinue |> Arb.fromGen
+
 type ReaderTests() =
     [<Property>]
     let ``Reads integers`` (num: NonNegativeInt) =
@@ -20,25 +37,9 @@ type ReaderTests() =
         |> Prop.forAll
         <| fun white -> Assert.Equal(Expr.Int 1, read $"{white}1{white}")
 
-    let nameStartChars = '_' :: [ 'A' .. 'Z' ] @ [ 'a' .. 'z' ]
-    let nameContinueChars = nameStartChars @ [ '0' .. '9' ]
-
-    let genNameStart =
-        Gen.elements nameStartChars
-        |> Gen.nonEmptyListOf
-        |> Gen.map (List.map string >> String.concat "")
-
-    let genNameContinue =
-        Gen.elements nameContinueChars
-        |> Gen.listOf
-        |> Gen.map (List.map string >> String.concat "")
-
-    let genName = Gen.map2 (+) genNameStart genNameContinue
-
-    [<Property>]
-    let ``Reads names`` () =
-        genName |> Arb.fromGen |> Prop.forAll
-        <| fun name -> Assert.Equal(Expr.Name name, read $"{name}")
+    [<Property(Arbitrary = [| typeof<GenName> |])>]
+    let ``Reads names`` (name: string) =
+        Assert.Equal(Expr.Name name, read $"{name}")
 
     [<Fact>]
     let ``Reads negations`` () =
@@ -107,15 +108,13 @@ type ReaderTests() =
             read "λ → 1"
         )
 
-    [<Property(EndSize = 5)>]
-    let ``Reads functions with parameters`` () =
-        genName |> Gen.listOf |> Arb.fromGen |> Prop.forAll
-        <| fun paramNames ->
-            let paramNamesCode = paramNames |> String.concat " "
-            Assert.Equal(
-                Expr.Function(paramNames, body = Expr.Int 99),
-                read $"λ{paramNamesCode} → 99"
-            )
+    [<Property(EndSize = 5, Arbitrary = [| typeof<GenName> |])>]
+    let ``Reads functions with parameters`` (paramNames: string list) =
+        let paramNamesCode = paramNames |> String.concat " "
+        Assert.Equal(
+            Expr.Function(paramNames, body = Expr.Int 99),
+            read $"λ{paramNamesCode} → 99"
+        )
 
     [<Fact>]
     let ``Reads function calls with one argument`` () =
