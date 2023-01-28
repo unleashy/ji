@@ -1,4 +1,4 @@
-module Ji.Ast
+namespace Ji
 
 [<RequireQualifiedAccess>]
 type UnaryOp = Neg

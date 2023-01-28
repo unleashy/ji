@@ -3,7 +3,7 @@ namespace Ji.Tests
 open Xunit
 open FsCheck
 open FsCheck.Xunit
-open Ji.Ast
+open Ji
 open Ji.Reader
 
 type GenName =

@@ -1,8 +1,7 @@
-module Ji.Printer
+namespace Ji
 
-open Ji.Values
-
-let print (value: Value<_>) : string =
-    match value with
-    | Value.Int(n) -> string n
-    | Value.Function _ -> "<function>"
+module Printer =
+    let print (value: Value<_>) : string =
+        match value with
+        | Value.Int(n) -> string n
+        | Value.Function _ -> "<function>"

@@ -4,8 +4,6 @@ open Xunit
 open FsCheck
 open FsCheck.Xunit
 open Ji
-open Ji.Ast
-open Ji.Values
 open Ji.Evaluator
 
 type EvaluatorTests() =
