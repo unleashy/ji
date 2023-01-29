@@ -1,7 +1,5 @@
 namespace Ji
 
-open Ji.Error
-
 // Grammar for Ji:
 //   Top → Expr <end of input>
 //
@@ -38,6 +36,20 @@ type private Token =
     | ParenClose
     | Lambda
     | ArrowRight
+
+    override this.ToString() : string =
+        match this with
+        | End -> "end of input"
+        | Int i -> string i
+        | Name n -> n
+        | Plus -> "'+'"
+        | Minus -> "'-'"
+        | Star -> "'*'"
+        | Slash -> "'/'"
+        | ParenOpen -> "'('"
+        | ParenClose -> "')'"
+        | Lambda -> "'λ' or '\\'"
+        | ArrowRight -> "'→' or '->'"
 
 type private LocatedToken =
     { Token: Token
@@ -131,7 +143,12 @@ module private Lexer =
                Location = location },
              source)
 
-        | None -> failwith $"Unknown character '{source |> Source.head}'"
+        | None ->
+            let unknownChar = source |> Source.head
+            Error.raiseWith
+                {| Code = ErrorCode.UnknownChar
+                   Message = $"Unknown character {unknownChar}"
+                   Location = location.Force() |}
 
     let tokenise (code: string) : seq<LocatedToken> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
@@ -222,7 +239,13 @@ module Reader =
             |> List.tryPick (fun reader -> reader tokens)
         match choice with
         | Some(result) -> result
-        | None -> failwith $"Unexpected {tokens |> Seq.head}"
+        | None ->
+            let token = tokens |> Seq.head
+            Error.raiseWith
+                {| Code = ErrorCode.ExpectedExpr
+                   Message = $"Expected an expression but got {token.Token}"
+                   Location = token.Location.Force() |}
+
 
     and private readInt tokens =
         match tokens with
@@ -246,7 +269,12 @@ module Reader =
                 let body, tokens = readExpr tokens
                 Some(Expr.Function(paramNames, body), tokens)
             | _ ->
-                failwith $"Expected an '→' for lambda, got {tokens |> Seq.head}"
+                let token = tokens |> Seq.head
+                Error.raiseWith
+                    {| Code = ErrorCode.ExpectedArrow
+                       Message =
+                        $"Expected an '→' to continue lambda, got {token.Token}"
+                       Location = token.Location.Force() |}
         | _ -> None
 
     and private readParams tokens =
@@ -260,17 +288,29 @@ module Reader =
 
     and private readParens tokens =
         match tokens with
-        | SeqCons({ Token = Token.ParenOpen }, tokens) ->
+        | SeqCons({ Token = Token.ParenOpen
+                    Location = startLocation },
+                  tokens) ->
             let expr, tokens = readExpr tokens
 
             match tokens with
             | SeqCons({ Token = Token.ParenClose }, tokens) ->
                 Some(expr, tokens)
-            | _ -> failwith $"Expected a ')', got {tokens |> Seq.head}"
+            | _ ->
+                let token = tokens |> Seq.head
+                Error.raiseWith
+                    {| Code = ErrorCode.UnclosedParens
+                       Message =
+                        $"Unclosed parenthesised expression starting at {startLocation.Force()}"
+                       Location = token.Location.Force() |}
         | _ -> None
 
     let read (code: string) : Expr =
         let ast, tokens = readExpr (Lexer.tokenise code)
         match tokens |> Seq.head with
         | { Token = Token.End } -> ast
-        | { Token = extra } -> failwith $"Extraneous input: unexpected {extra}"
+        | { Token = extra; Location = location } ->
+            Error.raiseWith
+                {| Code = ErrorCode.ExtraneousInput
+                   Message = $"Extraneous input: unexpected {extra}"
+                   Location = location.Force() |}

@@ -1,5 +1,6 @@
 open System
 open Ji
+open Ji.Error
 
 let rep (code: string) =
     code |> Reader.read |> Evaluator.eval Env.empty |> Printer.print
@@ -22,7 +23,11 @@ let main _ =
         | null
         | "\\exit" -> looping <- false
         | line ->
-            let result = rep line
-            printfn $"{result}"
+            try
+                let result = rep line
+                printfn $"{result}"
+            with JiError e ->
+                eprintfn
+                    $"! error at {e.Location}: {e.Message} [{e.Code |> formatErrorCode}]"
 
     0

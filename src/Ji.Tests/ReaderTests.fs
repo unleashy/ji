@@ -24,6 +24,12 @@ type GenName =
         Gen.map2 (+) genNameStart genNameContinue |> Arb.fromGen
 
 type ReaderTests() =
+    [<Fact>]
+    let ``Throws on unknown characters`` () =
+        let error = Assert.Throws<JiError>(fun () -> read "´" :> obj)
+        Assert.Equal(ErrorCode.UnknownChar, error.Data0.Code)
+        Assert.Equal({ Line = 1; Column = 1 }, error.Data0.Location)
+
     [<Property>]
     let ``Reads integers`` (num: NonNegativeInt) =
         Assert.Equal(Expr.Int num.Get, read $"{num}")
@@ -102,6 +108,24 @@ type ReaderTests() =
         )
 
     [<Fact>]
+    let ``Throws on unclosed parentheses`` () =
+        let error = Assert.Throws<JiError>(fun () -> read "(42 - 42" :> obj)
+        Assert.Equal(ErrorCode.UnclosedParens, error.Data0.Code)
+        Assert.Equal({ Line = 1; Column = 9 }, error.Data0.Location)
+
+    [<Fact>]
+    let ``Throws on extraneous input`` () =
+        let error = Assert.Throws<JiError>(fun () -> read "(0))" :> obj)
+        Assert.Equal(ErrorCode.ExtraneousInput, error.Data0.Code)
+        Assert.Equal({ Line = 1; Column = 4 }, error.Data0.Location)
+
+    [<Fact>]
+    let ``Throws if it expected an expression`` () =
+        let error = Assert.Throws<JiError>(fun () -> read "1 + +" :> obj)
+        Assert.Equal(ErrorCode.ExpectedExpr, error.Data0.Code)
+        Assert.Equal({ Line = 1; Column = 5 }, error.Data0.Location)
+
+    [<Fact>]
     let ``Reads functions with no parameters`` () =
         Assert.Equal(
             Expr.Function(paramNames = [], body = Expr.Int 1),
@@ -115,6 +139,12 @@ type ReaderTests() =
             Expr.Function(paramNames, body = Expr.Int 99),
             read $"λ{paramNamesCode} → 99"
         )
+
+    [<Fact>]
+    let ``Throws if functions lack the arrow`` () =
+        let error = Assert.Throws<JiError>(fun () -> read "λ 99" :> obj)
+        Assert.Equal(ErrorCode.ExpectedArrow, error.Data0.Code)
+        Assert.Equal({ Line = 1; Column = 3 }, error.Data0.Location)
 
     [<Fact>]
     let ``Reads function calls with one argument`` () =

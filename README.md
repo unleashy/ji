@@ -17,9 +17,9 @@ Trying to learn F# by making an interpreter.
   - [x] Evaluate arithmetic operations
 - [x] Add functions
 - [ ] Add let bindings and sequencing
-- [ ] Improve error handling and reporting
-  - [ ] Use own error class/type
-  - [ ] Track line/columns
+- [x] Improve error handling and reporting
+  - [x] Use own error class/type
+  - [x] Track line/columns
   - [ ] Check boundaries for integer literals
   - [ ] Check for extraneous input/unknown characters
 
