@@ -5,6 +5,8 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Location.fs" />
+    <Compile Include="Error.fs" />
     <Compile Include="Ast.fs" />
     <Compile Include="Reader.fs" />
     <Compile Include="Values.fs" />
