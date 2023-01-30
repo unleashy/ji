@@ -8,10 +8,10 @@ Trying to learn F# by making an interpreter.
   - [x] Read integers
   - [x] Read arithmetic operators
   - [x] Read parentheses
-  - [ ] Read ASCII syntax for functions
-    - [ ] \ can be used for λ
-    - [ ] -> can be used for →
-  - [ ] Read comments
+  - [x] Read ASCII syntax for functions
+    - [x] \ can be used for λ
+    - [x] -> can be used for →
+  - [x] Read comments
 - [x] Evaluator
   - [x] Evaluate integers
   - [x] Evaluate arithmetic operations

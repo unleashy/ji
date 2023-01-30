@@ -43,6 +43,11 @@ type ReaderTests() =
         |> Prop.forAll
         <| fun white -> Assert.Equal(Expr.Int 1I, read $"{white}1{white}")
 
+    [<Property>]
+    let ``Skips comments`` ((NonNull s): NonNull<string>) =
+        not <| s.Contains('\n')
+        ==> lazy (Assert.Equal(Expr.Int 1I, read $"#{s}\n1#{s}"))
+
     [<Property(Arbitrary = [| typeof<GenName> |])>]
     let ``Reads names`` (name: string) =
         Assert.Equal(Expr.Name name, read $"{name}")

@@ -21,7 +21,8 @@ namespace Ji
 //   Function → "λ" Name* "→" Expr
 //
 //   <ignored>
-//   Spacing → [\r\t ]*
+//   Spacing → (Comment | [\r\t ])*
+//   Comment → "#" <any>* ("\n" | <end of input>)
 
 [<RequireQualifiedAccess>]
 type private Token =
@@ -65,6 +66,9 @@ module private Lexer =
 
         let head (s: Source) : char = s.Code[s.CurrentIndex]
 
+        let skip (n: int) (s: Source) : Source =
+            { s with CurrentIndex = s.CurrentIndex + n }
+
         let skipWhile (f: char -> bool) (s: Source) : Source =
             let rec loop f index =
                 match s.Code[index..] |> Seq.tryHead with
@@ -88,9 +92,20 @@ module private Lexer =
 
         let (|Match|_|) (needle: string) (s: Source) =
             if s |> test needle then
-                Some { s with CurrentIndex = s.CurrentIndex + needle.Length }
+                Some(s |> skip needle.Length)
             else
                 None
+
+    let rec private skipComment source =
+        source |> Source.skipWhile (fun c -> c <> '\n') |> Source.skip 1
+
+    let rec private skipSpacing source =
+        match source with
+        | Source.Match "\r" rest
+        | Source.Match "\t" rest
+        | Source.Match " " rest -> skipSpacing rest
+        | Source.Match "#" rest -> skipComment rest
+        | _ -> source
 
     let private isDigit c = c >= '0' && c <= '9'
 
@@ -129,10 +144,8 @@ module private Lexer =
 
     let private nextFns = [ nextInt; nextName; nextOp ]
 
-    let private isSpacing c = List.contains c [ '\r'; '\t'; ' ' ]
-
     let private nextToken source =
-        let source = source |> Source.skipWhile isSpacing
+        let source = source |> skipSpacing
         let token = nextFns |> List.tryPick (fun nextFn -> nextFn source)
         let location = lazy (Location.fromIndex source.Code source.CurrentIndex)
 
