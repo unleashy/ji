@@ -12,9 +12,19 @@ type BinaryOp =
 
 [<RequireQualifiedAccess>]
 type Expr =
-    | Int of bigint
-    | Name of string
-    | Function of paramNames: string list * body: Expr
-    | Unary of op: UnaryOp * expr: Expr
-    | Call of callee: Expr * args: Expr list
-    | Binary of left: Expr * op: BinaryOp * right: Expr
+    | Int of {| Value: bigint |}
+
+    | Name of {| Value: string |}
+
+    | Function of
+        {| Parameters: string list
+           Body: Expr |}
+
+    | Unary of {| Op: UnaryOp; Expr: Expr |}
+
+    | Call of {| Callee: Expr; Args: Expr list |}
+
+    | Binary of
+        {| Left: Expr
+           Op: BinaryOp
+           Right: Expr |}

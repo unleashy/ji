@@ -12,13 +12,18 @@ type EvaluatorTests() =
     [<Property>]
     let ``Evaluates integers`` (num: bigint) =
         num >= 0I
-        ==> Assert.Equal(Value.Int num, Expr.Int num |> evalInEmptyEnv)
+        ==> Assert.Equal(
+            Value.Int num,
+            Expr.Int {| Value = num |} |> evalInEmptyEnv
+        )
 
     [<Fact>]
     let ``Evaluates negation`` () =
         Assert.Equal(
             Value.Int -1234I,
-            Expr.Unary(op = UnaryOp.Neg, expr = Expr.Int 1234I)
+            Expr.Unary
+                {| Op = UnaryOp.Neg
+                   Expr = Expr.Int {| Value = 1234I |} |}
             |> evalInEmptyEnv
         )
 
@@ -26,11 +31,10 @@ type EvaluatorTests() =
     let ``Evaluates addition`` () =
         Assert.Equal(
             Value.Int(12I + 34I),
-            Expr.Binary(
-                left = Expr.Int 12I,
-                op = BinaryOp.Add,
-                right = Expr.Int 34I
-            )
+            Expr.Binary
+                {| Left = Expr.Int {| Value = 12I |}
+                   Op = BinaryOp.Add
+                   Right = Expr.Int {| Value = 34I |} |}
             |> evalInEmptyEnv
         )
 
@@ -38,11 +42,10 @@ type EvaluatorTests() =
     let ``Evaluates subtraction`` () =
         Assert.Equal(
             Value.Int(99I - 11I),
-            Expr.Binary(
-                left = Expr.Int 99I,
-                op = BinaryOp.Sub,
-                right = Expr.Int 11I
-            )
+            Expr.Binary
+                {| Left = Expr.Int {| Value = 99I |}
+                   Op = BinaryOp.Sub
+                   Right = Expr.Int {| Value = 11I |} |}
             |> evalInEmptyEnv
         )
 
@@ -50,11 +53,10 @@ type EvaluatorTests() =
     let ``Evaluates multiplication`` () =
         Assert.Equal(
             Value.Int(123I * 123I),
-            Expr.Binary(
-                left = Expr.Int 123I,
-                op = BinaryOp.Mul,
-                right = Expr.Int 123I
-            )
+            Expr.Binary
+                {| Left = Expr.Int {| Value = 123I |}
+                   Op = BinaryOp.Mul
+                   Right = Expr.Int {| Value = 123I |} |}
             |> evalInEmptyEnv
         )
 
@@ -62,11 +64,10 @@ type EvaluatorTests() =
     let ``Evaluates division`` () =
         Assert.Equal(
             Value.Int(80I / 5I),
-            Expr.Binary(
-                left = Expr.Int 80I,
-                op = BinaryOp.Div,
-                right = Expr.Int 5I
-            )
+            Expr.Binary
+                {| Left = Expr.Int {| Value = 80I |}
+                   Op = BinaryOp.Div
+                   Right = Expr.Int {| Value = 5I |} |}
             |> evalInEmptyEnv
         )
 
@@ -76,10 +77,12 @@ type EvaluatorTests() =
             Value.Function(
                 env = Env.empty,
                 parameters = [ "x" ],
-                body = Expr.Name "x"
+                body = Expr.Name {| Value = "x" |}
             ),
             // λ(x) → x
-            Expr.Function(paramNames = [ "x" ], body = Expr.Name "x")
+            Expr.Function
+                {| Parameters = [ "x" ]
+                   Body = Expr.Name {| Value = "x" |} |}
             |> evalInEmptyEnv
         )
 
@@ -87,10 +90,12 @@ type EvaluatorTests() =
     let ``Evaluates function calls with no parameters`` () =
         Assert.Equal(
             Value.Int 42I,
-            Expr.Call(
-                callee = Expr.Function(paramNames = [], body = Expr.Int 42I),
-                args = []
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Function
+                        {| Parameters = []
+                           Body = Expr.Int {| Value = 42I |} |}
+                   Args = [] |}
             |> evalInEmptyEnv
         )
 
@@ -98,11 +103,12 @@ type EvaluatorTests() =
     let ``Evaluates function calls with a single parameter`` () =
         Assert.Equal(
             Value.Int 9999I,
-            Expr.Call(
-                callee =
-                    Expr.Function(paramNames = [ "x" ], body = Expr.Name "x"),
-                args = [ Expr.Int 9999I ]
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Function
+                        {| Parameters = [ "x" ]
+                           Body = Expr.Name {| Value = "x" |} |}
+                   Args = [ Expr.Int {| Value = 9999I |} ] |}
             |> evalInEmptyEnv
         )
 
@@ -111,24 +117,23 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(2I + 5I - 7I),
             // (λx y z → x + y - z) 2 5 7
-            Expr.Call(
-                callee =
-                    Expr.Function(
-                        paramNames = [ "x"; "y"; "z" ],
-                        body =
-                            Expr.Binary(
-                                left =
-                                    Expr.Binary(
-                                        left = Expr.Name "x",
-                                        op = BinaryOp.Add,
-                                        right = Expr.Name "y"
-                                    ),
-                                op = BinaryOp.Sub,
-                                right = Expr.Name "z"
-                            )
-                    ),
-                args = [ Expr.Int 2I; Expr.Int 5I; Expr.Int 7I ]
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Function
+                        {| Parameters = [ "x"; "y"; "z" ]
+                           Body =
+                            Expr.Binary
+                                {| Left =
+                                    Expr.Binary
+                                        {| Left = Expr.Name {| Value = "x" |}
+                                           Op = BinaryOp.Add
+                                           Right = Expr.Name {| Value = "y" |} |}
+                                   Op = BinaryOp.Sub
+                                   Right = Expr.Name {| Value = "z" |} |} |}
+                   Args =
+                    [ Expr.Int {| Value = 2I |}
+                      Expr.Int {| Value = 5I |}
+                      Expr.Int {| Value = 7I |} ] |}
             |> evalInEmptyEnv
         )
 
@@ -137,38 +142,34 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(1I - 2I),
             // ((λx → λy → x - y) 1) 2
-            Expr.Call(
-                callee =
-                    Expr.Call(
-                        callee =
-                            Expr.Function(
-                                paramNames = [ "x" ],
-                                body =
-                                    Expr.Function(
-                                        paramNames = [ "y" ],
-                                        body =
-                                            Expr.Binary(
-                                                left = Expr.Name "x",
-                                                op = BinaryOp.Sub,
-                                                right = Expr.Name "y"
-                                            )
-                                    )
-                            ),
-                        args = [ Expr.Int 1I ]
-                    ),
-                args = [ Expr.Int 2I ]
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Call
+                        {| Callee =
+                            Expr.Function
+                                {| Parameters = [ "x" ]
+                                   Body =
+                                    Expr.Function
+                                        {| Parameters = [ "y" ]
+                                           Body =
+                                            Expr.Binary
+                                                {| Left =
+                                                    Expr.Name {| Value = "x" |}
+                                                   Op = BinaryOp.Sub
+                                                   Right =
+                                                    Expr.Name {| Value = "y" |} |} |} |}
+                           Args = [ Expr.Int {| Value = 1I |} ] |}
+                   Args = [ Expr.Int {| Value = 2I |} ] |}
             |> evalInEmptyEnv
         )
 
     [<Fact>]
     let ``Functions are curried`` () =
         let body =
-            Expr.Binary(
-                left = Expr.Name "x",
-                op = BinaryOp.Mul,
-                right = Expr.Name "y"
-            )
+            Expr.Binary
+                {| Left = Expr.Name {| Value = "x" |}
+                   Op = BinaryOp.Mul
+                   Right = Expr.Name {| Value = "y" |} |}
 
         Assert.Equal(
             Value.Function(
@@ -177,10 +178,12 @@ type EvaluatorTests() =
                 body = body
             ),
             // (λx y → x * y) 5 = (λy → 5 * y)
-            Expr.Call(
-                callee = Expr.Function(paramNames = [ "x"; "y" ], body = body),
-                args = [ Expr.Int 5I ]
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Function
+                        {| Parameters = [ "x"; "y" ]
+                           Body = body |}
+                   Args = [ Expr.Int {| Value = 5I |} ] |}
             |> evalInEmptyEnv
         )
 
@@ -189,22 +192,19 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(2I - 1I),
             // (λx → λy → x - y) 2 1
-            Expr.Call(
-                callee =
-                    Expr.Function(
-                        paramNames = [ "x" ],
-                        body =
-                            Expr.Function(
-                                paramNames = [ "y" ],
-                                body =
-                                    Expr.Binary(
-                                        left = Expr.Name "x",
-                                        op = BinaryOp.Sub,
-                                        right = Expr.Name "y"
-                                    )
-                            )
-                    ),
-                args = [ Expr.Int 2I; Expr.Int 1I ]
-            )
+            Expr.Call
+                {| Callee =
+                    Expr.Function
+                        {| Parameters = [ "x" ]
+                           Body =
+                            Expr.Function
+                                {| Parameters = [ "y" ]
+                                   Body =
+                                    Expr.Binary
+                                        {| Left = Expr.Name {| Value = "x" |}
+                                           Op = BinaryOp.Sub
+                                           Right = Expr.Name {| Value = "y" |} |} |} |}
+                   Args =
+                    [ Expr.Int {| Value = 2I |}; Expr.Int {| Value = 1I |} ] |}
             |> evalInEmptyEnv
         )

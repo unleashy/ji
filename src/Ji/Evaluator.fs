@@ -23,21 +23,30 @@ module Evaluator =
 
     let rec eval (env: Env) (expr: Expr) : Value<Env> =
         match expr with
-        | Expr.Int(n) -> Value.Int(n)
-        | Expr.Name(name) ->
-            match env |> Env.get name with
+        | Expr.Int(expr) -> Value.Int(expr.Value)
+
+        | Expr.Name(expr) ->
+            match env |> Env.get expr.Value with
             | Some(value) -> value
-            | None -> failwith $"{name} is not in scope"
-        | Expr.Function(paramNames, body) ->
-            Value.Function(env, paramNames, body)
-        | Expr.Call(callee, args) ->
-            match eval env callee with
+            | None -> failwith $"{expr.Value} is not in scope"
+
+        | Expr.Function(expr) -> Value.Function(env, expr.Parameters, expr.Body)
+
+        | Expr.Call(expr) ->
+            match eval env expr.Callee with
             | Value.Function(funEnv, parameters, body) ->
-                evalCall funEnv parameters body (args |> List.map (eval env))
+                evalCall
+                    funEnv
+                    parameters
+                    body
+                    (expr.Args |> List.map (eval env))
+
             | v -> failwith $"Cannot call non-function value {v}"
-        | Expr.Unary(op, expr) -> evalUnary op (eval env expr)
-        | Expr.Binary(left, op, right) ->
-            evalBinary (eval env left) op (eval env right)
+
+        | Expr.Unary(expr) -> evalUnary expr.Op (eval env expr.Expr)
+
+        | Expr.Binary(expr) ->
+            evalBinary (eval env expr.Left) expr.Op (eval env expr.Right)
 
     and private evalCall env parameters body args =
         if args.Length = parameters.Length then

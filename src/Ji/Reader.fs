@@ -192,7 +192,13 @@ module Reader =
             match op with
             | Some(op) ->
                 let right, tokens = readMul tokens
-                loop (Expr.Binary(prevExpr, op, right)) tokens
+                let expr =
+                    Expr.Binary
+                        {| Left = prevExpr
+                           Op = op
+                           Right = right |}
+
+                loop expr tokens
             | None -> (prevExpr, tokens)
 
         let left, tokens = readMul tokens
@@ -213,7 +219,13 @@ module Reader =
             match op with
             | Some(op) ->
                 let right, tokens = readUnary tokens
-                loop (Expr.Binary(prevExpr, op, right)) tokens
+                let expr =
+                    Expr.Binary
+                        {| Left = prevExpr
+                           Op = op
+                           Right = right |}
+
+                loop expr tokens
             | None -> (prevExpr, tokens)
 
         let left, tokens = readUnary tokens
@@ -223,7 +235,8 @@ module Reader =
         match tokens with
         | SeqCons({ Token = Token.Minus }, tokens) ->
             let expr, tokens = readCall tokens
-            (Expr.Unary(UnaryOp.Neg, expr), tokens)
+
+            (Expr.Unary {| Op = UnaryOp.Neg; Expr = expr |}, tokens)
         | _ -> readCall tokens
 
     and private readCall tokens =
@@ -244,7 +257,7 @@ module Reader =
         let callee, tokens = readPrimary tokens
         if tokens |> Seq.head |> isPrimaryStart then
             let args, tokens = loop [] tokens
-            (Expr.Call(callee, args), tokens)
+            (Expr.Call {| Callee = callee; Args = args |}, tokens)
         else
             (callee, tokens)
 
@@ -265,13 +278,13 @@ module Reader =
     and private readInt tokens =
         match tokens with
         | SeqCons({ Token = Token.Int(value) }, rest) ->
-            Some(Expr.Int(value), rest)
+            Some(Expr.Int {| Value = value |}, rest)
         | _ -> None
 
     and private readName tokens =
         match tokens with
         | SeqCons({ Token = Token.Name(value) }, rest) ->
-            Some(Expr.Name(value), rest)
+            Some(Expr.Name {| Value = value |}, rest)
         | _ -> None
 
     and private readFunction tokens =
@@ -282,7 +295,12 @@ module Reader =
             match tokens with
             | SeqCons({ Token = Token.ArrowRight }, tokens) ->
                 let body, tokens = readExpr tokens
-                Some(Expr.Function(paramNames, body), tokens)
+                let expr =
+                    Expr.Function
+                        {| Parameters = paramNames
+                           Body = body |}
+
+                Some(expr, tokens)
             | _ ->
                 let token = tokens |> Seq.head
                 Error.raiseWith
