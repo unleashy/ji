@@ -147,6 +147,13 @@ type ReaderTests() =
         Assert.Equal({ Line = 1; Column = 3 }, error.Data0.Location)
 
     [<Fact>]
+    let ``Accepts ASCII syntax for functions`` () =
+        Assert.Equal(
+            Expr.Function(paramNames = [ "a"; "b" ], body = Expr.Int 42I),
+            read @"\a b -> 42"
+        )
+
+    [<Fact>]
     let ``Reads function calls with one argument`` () =
         Assert.Equal(
             Expr.Call(callee = Expr.Name "f", args = [ Expr.Int 8I ]),

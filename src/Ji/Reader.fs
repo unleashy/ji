@@ -115,14 +115,16 @@ module private Lexer =
 
     let private nextOp source =
         match source with
+        | Source.Match "->" rest
+        | Source.Match "→" rest -> Some(Token.ArrowRight, rest)
         | Source.Match "+" rest -> Some(Token.Plus, rest)
         | Source.Match "-" rest -> Some(Token.Minus, rest)
         | Source.Match "*" rest -> Some(Token.Star, rest)
         | Source.Match "/" rest -> Some(Token.Slash, rest)
         | Source.Match "(" rest -> Some(Token.ParenOpen, rest)
         | Source.Match ")" rest -> Some(Token.ParenClose, rest)
-        | Source.Match "λ" rest -> Some(Token.Lambda, rest)
-        | Source.Match "→" rest -> Some(Token.ArrowRight, rest)
+        | Source.Match "λ" rest
+        | Source.Match @"\" rest -> Some(Token.Lambda, rest)
         | _ -> None
 
     let private nextFns = [ nextInt; nextName; nextOp ]
@@ -273,7 +275,7 @@ module Reader =
                 Error.raiseWith
                     {| Code = ErrorCode.ExpectedArrow
                        Message =
-                        $"Expected an '→' to continue lambda, got {token.Token}"
+                        $"Expected an '→' or '->' to continue lambda, got {token.Token}"
                        Location = token.Location.Force() |}
         | _ -> None
 

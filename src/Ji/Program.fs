@@ -14,14 +14,14 @@ let main _ =
         Globalization.CultureInfo.InvariantCulture
 
     printfn "• Ji repl / v0.1.0"
-    printfn "Enter Ctrl+C or '\\exit' to exit\n"
+    printfn "Enter Ctrl+C or '/exit' to exit\n"
 
     let mutable looping = true
     while looping do
         printf ">> "
         match Console.ReadLine() with
         | null
-        | "\\exit" -> looping <- false
+        | "/exit" -> looping <- false
         | line ->
             try
                 let result = rep line
