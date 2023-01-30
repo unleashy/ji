@@ -20,8 +20,7 @@ Trying to learn F# by making an interpreter.
 - [x] Improve error handling and reporting
   - [x] Use own error class/type
   - [x] Track line/columns
-  - [ ] Check boundaries for integer literals
-  - [ ] Check for extraneous input/unknown characters
+  - [x] Check for extraneous input/unknown characters
 
 ## Licence
 

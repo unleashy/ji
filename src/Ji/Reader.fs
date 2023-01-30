@@ -26,7 +26,7 @@ namespace Ji
 [<RequireQualifiedAccess>]
 type private Token =
     | End
-    | Int of int64
+    | Int of bigint
     | Name of string
     | Plus
     | Minus
@@ -98,7 +98,7 @@ module private Lexer =
         let text, source = source |> Source.consumeWhile isDigit
         match text with
         | "" -> None
-        | _ -> Some(Token.Int(int64 text), source)
+        | _ -> Some(Token.Int(System.Numerics.BigInteger.Parse(text)), source)
 
     let private isNameStart c =
         (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c = '_'

@@ -2,5 +2,5 @@ namespace Ji
 
 [<RequireQualifiedAccess>]
 type Value<'env> =
-    | Int of int64
+    | Int of bigint
     | Function of env: 'env * parameters: string list * body: Expr
