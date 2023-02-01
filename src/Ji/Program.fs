@@ -26,7 +26,7 @@ let main _ =
             try
                 let result = rep line
                 printfn $"{result}"
-            with JiError e ->
+            with :? JiException as e ->
                 eprintfn
                     $"! error at {e.Location}: {e.Message} [{e.Code |> formatErrorCode}]"
 

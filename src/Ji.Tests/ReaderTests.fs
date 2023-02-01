@@ -51,9 +51,9 @@ type ReaderTests() =
 
     [<Fact>]
     let ``Throws on unknown characters`` () =
-        let error = Assert.Throws<JiError>(fun () -> read "´" :> obj)
-        Assert.Equal(ErrorCode.UnknownChar, error.Data0.Code)
-        Assert.Equal({ Line = 1; Column = 1 }, error.Data0.Location)
+        let error = Assert.Throws<JiException>(fun () -> read "´" :> obj)
+        Assert.Equal(ErrorCode.UnknownChar, error.Code)
+        Assert.Equal({ Line = 1; Column = 1 }, error.Location)
 
     [<Property>]
     let ``Reads integers`` (num: bigint) =
@@ -145,21 +145,21 @@ type ReaderTests() =
 
     [<Fact>]
     let ``Throws on unclosed parentheses`` () =
-        let error = Assert.Throws<JiError>(fun () -> read "(42 - 42" :> obj)
-        Assert.Equal(ErrorCode.UnclosedParens, error.Data0.Code)
-        Assert.Equal({ Line = 1; Column = 9 }, error.Data0.Location)
+        let error = Assert.Throws<JiException>(fun () -> read "(42 - 42" :> obj)
+        Assert.Equal(ErrorCode.UnclosedParens, error.Code)
+        Assert.Equal({ Line = 1; Column = 9 }, error.Location)
 
     [<Fact>]
     let ``Throws on extraneous input`` () =
-        let error = Assert.Throws<JiError>(fun () -> read "(0))" :> obj)
-        Assert.Equal(ErrorCode.ExtraneousInput, error.Data0.Code)
-        Assert.Equal({ Line = 1; Column = 4 }, error.Data0.Location)
+        let error = Assert.Throws<JiException>(fun () -> read "(0))" :> obj)
+        Assert.Equal(ErrorCode.ExtraneousInput, error.Code)
+        Assert.Equal({ Line = 1; Column = 4 }, error.Location)
 
     [<Fact>]
     let ``Throws if it expected an expression`` () =
-        let error = Assert.Throws<JiError>(fun () -> read "1 + +" :> obj)
-        Assert.Equal(ErrorCode.ExpectedExpr, error.Data0.Code)
-        Assert.Equal({ Line = 1; Column = 5 }, error.Data0.Location)
+        let error = Assert.Throws<JiException>(fun () -> read "1 + +" :> obj)
+        Assert.Equal(ErrorCode.ExpectedExpr, error.Code)
+        Assert.Equal({ Line = 1; Column = 5 }, error.Location)
 
     [<Fact>]
     let ``Reads functions with no parameters`` () =
@@ -187,9 +187,9 @@ type ReaderTests() =
 
     [<Fact>]
     let ``Throws if functions lack the arrow`` () =
-        let error = Assert.Throws<JiError>(fun () -> read "λ 99" :> obj)
-        Assert.Equal(ErrorCode.ExpectedArrow, error.Data0.Code)
-        Assert.Equal({ Line = 1; Column = 3 }, error.Data0.Location)
+        let error = Assert.Throws<JiException>(fun () -> read "λ 99" :> obj)
+        Assert.Equal(ErrorCode.ExpectedArrow, error.Code)
+        Assert.Equal({ Line = 1; Column = 3 }, error.Location)
 
     [<Fact>]
     let ``Accepts ASCII syntax for functions`` () =
