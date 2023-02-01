@@ -52,9 +52,7 @@ type private Token =
         | Lambda -> "'λ' or '\\'"
         | ArrowRight -> "'→' or '->'"
 
-type private LocatedToken =
-    { Token: Token
-      Location: Lazy<Location> }
+type private SpannedToken = { Token: Token; Span: Span }
 
 module private Lexer =
     type private Source = { Code: string; CurrentIndex: int }
@@ -147,15 +145,16 @@ module private Lexer =
     let private nextToken source =
         let source = source |> skipSpacing
         let token = nextFns |> List.tryPick (fun nextFn -> nextFn source)
-        let location = lazy (Location.fromIndex source.Code source.CurrentIndex)
 
         match token with
         | Some(token, source') ->
-            ({ Token = token; Location = location }, source')
+            ({ Token = token
+               Span = Span.ofSlice source.CurrentIndex source'.CurrentIndex },
+             source')
 
         | None when source |> Source.isEmpty ->
             ({ Token = Token.End
-               Location = location },
+               Span = Span.emptyAt source.CurrentIndex },
              source)
 
         | None ->
@@ -163,9 +162,9 @@ module private Lexer =
             Error.raiseWith
                 {| Code = ErrorCode.UnknownChar
                    Message = $"Unknown character {unknownChar}"
-                   Location = location.Force() |}
+                   Location = Location.ofIndex source.Code source.CurrentIndex |}
 
-    let tokenise (code: string) : seq<LocatedToken> =
+    let tokenise (code: string) : seq<SpannedToken> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
         unfoldInfinite nextToken (Source.make code)
 
@@ -175,175 +174,213 @@ module Reader =
         | Some(head) -> SeqCons(head, s |> Seq.skip 1)
         | None -> SeqNil
 
-    let rec private readExpr tokens = readAdd tokens
+    let private readImpl code =
+        let rec readExpr tokens = readAdd tokens
 
-    and private readAdd tokens =
-        let rec loop prevExpr tokens =
-            let op, tokens =
-                match tokens with
-                | SeqCons({ Token = Token.Plus }, tokens) ->
-                    (Some(BinaryOp.Add), tokens)
+        and readAdd tokens =
+            let rec loop prevExpr tokens =
+                let op, tokens =
+                    match tokens with
+                    | SeqCons({ Token = Token.Plus }, tokens) ->
+                        (Some(BinaryOp.Add), tokens)
 
-                | SeqCons({ Token = Token.Minus }, tokens) ->
-                    (Some(BinaryOp.Sub), tokens)
+                    | SeqCons({ Token = Token.Minus }, tokens) ->
+                        (Some(BinaryOp.Sub), tokens)
 
-                | _ -> (None, tokens)
+                    | _ -> (None, tokens)
 
-            match op with
-            | Some(op) ->
-                let right, tokens = readMul tokens
-                let expr =
-                    Expr.Binary
-                        {| Left = prevExpr
-                           Op = op
-                           Right = right |}
+                match op with
+                | Some(op) ->
+                    let right, tokens = readMul tokens
+                    let expr =
+                        { Expr =
+                            Expr.Binary
+                                {| Left = prevExpr
+                                   Op = op
+                                   Right = right |}
+                          Span = prevExpr.Span ++ right.Span }
 
-                loop expr tokens
-            | None -> (prevExpr, tokens)
+                    loop expr tokens
+                | None -> (prevExpr, tokens)
 
-        let left, tokens = readMul tokens
-        loop left tokens
+            let left, tokens = readMul tokens
+            loop left tokens
 
-    and private readMul tokens =
-        let rec loop prevExpr tokens =
-            let op, tokens =
-                match tokens with
-                | SeqCons({ Token = Token.Star }, tokens) ->
-                    (Some(BinaryOp.Mul), tokens)
+        and readMul tokens =
+            let rec loop prevExpr tokens =
+                let op, tokens =
+                    match tokens with
+                    | SeqCons({ Token = Token.Star }, tokens) ->
+                        (Some(BinaryOp.Mul), tokens)
 
-                | SeqCons({ Token = Token.Slash }, tokens) ->
-                    (Some(BinaryOp.Div), tokens)
+                    | SeqCons({ Token = Token.Slash }, tokens) ->
+                        (Some(BinaryOp.Div), tokens)
 
-                | _ -> (None, tokens)
+                    | _ -> (None, tokens)
 
-            match op with
-            | Some(op) ->
-                let right, tokens = readUnary tokens
-                let expr =
-                    Expr.Binary
-                        {| Left = prevExpr
-                           Op = op
-                           Right = right |}
+                match op with
+                | Some(op) ->
+                    let right, tokens = readUnary tokens
+                    let expr =
+                        { Expr =
+                            Expr.Binary
+                                {| Left = prevExpr
+                                   Op = op
+                                   Right = right |}
+                          Span = prevExpr.Span ++ right.Span }
 
-                loop expr tokens
-            | None -> (prevExpr, tokens)
+                    loop expr tokens
+                | None -> (prevExpr, tokens)
 
-        let left, tokens = readUnary tokens
-        loop left tokens
+            let left, tokens = readUnary tokens
+            loop left tokens
 
-    and private readUnary tokens =
-        match tokens with
-        | SeqCons({ Token = Token.Minus }, tokens) ->
-            let expr, tokens = readCall tokens
+        and readUnary tokens =
+            match tokens with
+            | SeqCons({ Token = Token.Minus
+                        Span = minusSpan },
+                      tokens) ->
+                let expr, tokens = readCall tokens
 
-            (Expr.Unary {| Op = UnaryOp.Neg; Expr = expr |}, tokens)
-        | _ -> readCall tokens
+                ({ Expr = Expr.Unary {| Op = UnaryOp.Neg; Expr = expr |}
+                   Span = minusSpan ++ expr.Span },
+                 tokens)
+            | _ -> readCall tokens
 
-    and private readCall tokens =
-        let isPrimaryStart ({ Token = token }) =
-            match token with
-            | Token.Int _
-            | Token.Name _
-            | Token.ParenOpen _ -> true
-            | _ -> false
+        and readCall tokens =
+            let isPrimaryStart ({ Token = token }) =
+                match token with
+                | Token.Int _
+                | Token.Name _
+                | Token.ParenOpen _ -> true
+                | _ -> false
 
-        let rec loop args tokens =
+            let rec loop args tokens =
+                if tokens |> Seq.head |> isPrimaryStart then
+                    let arg, tokens = readPrimary tokens
+                    loop (args @ [ arg ]) tokens
+                else
+                    (args, tokens)
+
+            let callee, tokens = readPrimary tokens
             if tokens |> Seq.head |> isPrimaryStart then
-                let arg, tokens = readPrimary tokens
-                loop (args @ [ arg ]) tokens
-            else
-                (args, tokens)
+                let args, tokens = loop [] tokens
+                let span =
+                    match args |> List.tryLast with
+                    | Some(lastArg) -> callee.Span ++ lastArg.Span
+                    | None -> callee.Span
 
-        let callee, tokens = readPrimary tokens
-        if tokens |> Seq.head |> isPrimaryStart then
-            let args, tokens = loop [] tokens
-            (Expr.Call {| Callee = callee; Args = args |}, tokens)
-        else
-            (callee, tokens)
-
-    and private readPrimary tokens =
-        let choice =
-            [ readInt; readName; readFunction; readParens ]
-            |> List.tryPick (fun reader -> reader tokens)
-        match choice with
-        | Some(result) -> result
-        | None ->
-            let token = tokens |> Seq.head
-            Error.raiseWith
-                {| Code = ErrorCode.ExpectedExpr
-                   Message = $"Expected an expression but got {token.Token}"
-                   Location = token.Location.Force() |}
-
-
-    and private readInt tokens =
-        match tokens with
-        | SeqCons({ Token = Token.Int(value) }, rest) ->
-            Some(Expr.Int {| Value = value |}, rest)
-        | _ -> None
-
-    and private readName tokens =
-        match tokens with
-        | SeqCons({ Token = Token.Name(value) }, rest) ->
-            Some(Expr.Name {| Value = value |}, rest)
-        | _ -> None
-
-    and private readFunction tokens =
-        match tokens with
-        | SeqCons({ Token = Token.Lambda }, tokens) ->
-            let paramNames, tokens = readParams tokens
-
-            match tokens with
-            | SeqCons({ Token = Token.ArrowRight }, tokens) ->
-                let body, tokens = readExpr tokens
                 let expr =
-                    Expr.Function
-                        {| Parameters = paramNames
-                           Body = body |}
+                    { Expr = Expr.Call {| Callee = callee; Args = args |}
+                      Span = span }
 
-                Some(expr, tokens)
-            | _ ->
+                (expr, tokens)
+            else
+                (callee, tokens)
+
+        and readPrimary tokens : SpannedExpr * seq<SpannedToken> =
+            let choice =
+                [ readInt; readName; readFunction; readParens ]
+                |> List.tryPick (fun reader -> reader tokens)
+            match choice with
+            | Some(result) -> result
+            | None ->
                 let token = tokens |> Seq.head
                 Error.raiseWith
-                    {| Code = ErrorCode.ExpectedArrow
-                       Message =
-                        $"Expected an '→' or '->' to continue lambda, got {token.Token}"
-                       Location = token.Location.Force() |}
-        | _ -> None
+                    {| Code = ErrorCode.ExpectedExpr
+                       Message = $"Expected an expression but got {token.Token}"
+                       Location = Location.ofSpan code token.Span |}
 
-    and private readParams tokens =
-        let rec loop tokens acc =
+        and readInt tokens =
             match tokens with
-            | SeqCons({ Token = Token.Name name }, tokens) ->
-                loop tokens (acc @ [ name ])
-            | _ -> (acc, tokens)
+            | SeqCons({ Token = Token.Int(value)
+                        Span = span },
+                      rest) ->
+                let expr =
+                    { Expr = Expr.Int {| Value = value |}
+                      Span = span }
 
-        loop tokens []
+                Some(expr, rest)
+            | _ -> None
 
-    and private readParens tokens =
-        match tokens with
-        | SeqCons({ Token = Token.ParenOpen
-                    Location = startLocation },
-                  tokens) ->
-            let expr, tokens = readExpr tokens
-
+        and readName tokens =
             match tokens with
-            | SeqCons({ Token = Token.ParenClose }, tokens) ->
-                Some(expr, tokens)
-            | _ ->
-                let token = tokens |> Seq.head
-                Error.raiseWith
-                    {| Code = ErrorCode.UnclosedParens
-                       Message =
-                        $"Unclosed parenthesised expression starting at {startLocation.Force()}"
-                       Location = token.Location.Force() |}
-        | _ -> None
+            | SeqCons({ Token = Token.Name(value)
+                        Span = span },
+                      rest) ->
+                let expr =
+                    { Expr = Expr.Name {| Value = value |}
+                      Span = span }
 
-    let read (code: string) : Expr =
-        let ast, tokens = readExpr (Lexer.tokenise code)
+                Some(expr, rest)
+            | _ -> None
+
+        and readFunction tokens =
+            match tokens with
+            | SeqCons({ Token = Token.Lambda
+                        Span = lambdaSpan },
+                      tokens) ->
+                let paramNames, tokens = readParams tokens
+
+                match tokens with
+                | SeqCons({ Token = Token.ArrowRight }, tokens) ->
+                    let body, tokens = readExpr tokens
+                    let expr =
+                        { Expr =
+                            Expr.Function
+                                {| Parameters = paramNames
+                                   Body = body |}
+                          Span = lambdaSpan ++ body.Span }
+
+                    Some(expr, tokens)
+                | _ ->
+                    let token = tokens |> Seq.head
+                    Error.raiseWith
+                        {| Code = ErrorCode.ExpectedArrow
+                           Message =
+                            $"Expected an '→' or '->' to continue lambda, got {token.Token}"
+                           Location = Location.ofSpan code token.Span |}
+            | _ -> None
+
+        and readParams tokens =
+            let rec loop tokens acc =
+                match tokens with
+                | SeqCons({ Token = Token.Name name }, tokens) ->
+                    loop tokens (acc @ [ name ])
+                | _ -> (acc, tokens)
+
+            loop tokens []
+
+        and readParens tokens =
+            match tokens with
+            | SeqCons({ Token = Token.ParenOpen
+                        Span = openSpan },
+                      tokens) ->
+                let expr, tokens = readExpr tokens
+
+                match tokens with
+                | SeqCons({ Token = Token.ParenClose
+                            Span = closeSpan },
+                          tokens) ->
+                    Some({ expr with Span = openSpan ++ closeSpan }, tokens)
+                | _ ->
+                    let token = tokens |> Seq.head
+                    let startLocation = Location.ofSpan code openSpan
+                    Error.raiseWith
+                        {| Code = ErrorCode.UnclosedParens
+                           Message =
+                            $"Unclosed parenthesised expression starting at {startLocation}"
+                           Location = Location.ofSpan code token.Span |}
+            | _ -> None
+
+        readExpr
+
+    let read (code: string) : SpannedExpr =
+        let ast, tokens = readImpl code (Lexer.tokenise code)
         match tokens |> Seq.head with
         | { Token = Token.End } -> ast
-        | { Token = extra; Location = location } ->
+        | { Token = extra; Span = span } ->
             Error.raiseWith
                 {| Code = ErrorCode.ExtraneousInput
                    Message = $"Extraneous input: unexpected {extra}"
-                   Location = location.Force() |}
+                   Location = Location.ofSpan code span |}

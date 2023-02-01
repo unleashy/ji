@@ -7,15 +7,20 @@ open Ji
 open Ji.Evaluator
 
 type EvaluatorTests() =
+    let withDefaultSpan expr =
+        { Expr = expr
+          Span = { Index = 0; Length = 1 } }
+
     let evalInEmptyEnv = eval Env.empty
 
     [<Property>]
     let ``Evaluates integers`` (num: bigint) =
         num >= 0I
-        ==> Assert.Equal(
-            Value.Int num,
-            Expr.Int {| Value = num |} |> evalInEmptyEnv
-        )
+        ==> lazy
+            (Assert.Equal(
+                Value.Int num,
+                Expr.Int {| Value = num |} |> withDefaultSpan |> evalInEmptyEnv
+            ))
 
     [<Fact>]
     let ``Evaluates negation`` () =
@@ -23,7 +28,8 @@ type EvaluatorTests() =
             Value.Int -1234I,
             Expr.Unary
                 {| Op = UnaryOp.Neg
-                   Expr = Expr.Int {| Value = 1234I |} |}
+                   Expr = Expr.Int {| Value = 1234I |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -32,9 +38,10 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(12I + 34I),
             Expr.Binary
-                {| Left = Expr.Int {| Value = 12I |}
+                {| Left = Expr.Int {| Value = 12I |} |> withDefaultSpan
                    Op = BinaryOp.Add
-                   Right = Expr.Int {| Value = 34I |} |}
+                   Right = Expr.Int {| Value = 34I |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -43,9 +50,10 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(99I - 11I),
             Expr.Binary
-                {| Left = Expr.Int {| Value = 99I |}
+                {| Left = Expr.Int {| Value = 99I |} |> withDefaultSpan
                    Op = BinaryOp.Sub
-                   Right = Expr.Int {| Value = 11I |} |}
+                   Right = Expr.Int {| Value = 11I |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -54,9 +62,10 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(123I * 123I),
             Expr.Binary
-                {| Left = Expr.Int {| Value = 123I |}
+                {| Left = Expr.Int {| Value = 123I |} |> withDefaultSpan
                    Op = BinaryOp.Mul
-                   Right = Expr.Int {| Value = 123I |} |}
+                   Right = Expr.Int {| Value = 123I |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -65,9 +74,10 @@ type EvaluatorTests() =
         Assert.Equal(
             Value.Int(80I / 5I),
             Expr.Binary
-                {| Left = Expr.Int {| Value = 80I |}
+                {| Left = Expr.Int {| Value = 80I |} |> withDefaultSpan
                    Op = BinaryOp.Div
-                   Right = Expr.Int {| Value = 5I |} |}
+                   Right = Expr.Int {| Value = 5I |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -77,12 +87,13 @@ type EvaluatorTests() =
             Value.Function(
                 env = Env.empty,
                 parameters = [ "x" ],
-                body = Expr.Name {| Value = "x" |}
+                body = (Expr.Name {| Value = "x" |} |> withDefaultSpan)
             ),
             // λ(x) → x
             Expr.Function
                 {| Parameters = [ "x" ]
-                   Body = Expr.Name {| Value = "x" |} |}
+                   Body = Expr.Name {| Value = "x" |} |> withDefaultSpan |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -94,8 +105,10 @@ type EvaluatorTests() =
                 {| Callee =
                     Expr.Function
                         {| Parameters = []
-                           Body = Expr.Int {| Value = 42I |} |}
+                           Body = Expr.Int {| Value = 42I |} |> withDefaultSpan |}
+                    |> withDefaultSpan
                    Args = [] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -107,8 +120,10 @@ type EvaluatorTests() =
                 {| Callee =
                     Expr.Function
                         {| Parameters = [ "x" ]
-                           Body = Expr.Name {| Value = "x" |} |}
-                   Args = [ Expr.Int {| Value = 9999I |} ] |}
+                           Body = Expr.Name {| Value = "x" |} |> withDefaultSpan |}
+                    |> withDefaultSpan
+                   Args = [ Expr.Int {| Value = 9999I |} |> withDefaultSpan ] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -125,15 +140,25 @@ type EvaluatorTests() =
                             Expr.Binary
                                 {| Left =
                                     Expr.Binary
-                                        {| Left = Expr.Name {| Value = "x" |}
+                                        {| Left =
+                                            Expr.Name {| Value = "x" |}
+                                            |> withDefaultSpan
                                            Op = BinaryOp.Add
-                                           Right = Expr.Name {| Value = "y" |} |}
+                                           Right =
+                                            Expr.Name {| Value = "y" |}
+                                            |> withDefaultSpan |}
+                                    |> withDefaultSpan
                                    Op = BinaryOp.Sub
-                                   Right = Expr.Name {| Value = "z" |} |} |}
+                                   Right =
+                                    Expr.Name {| Value = "z" |}
+                                    |> withDefaultSpan |}
+                            |> withDefaultSpan |}
+                    |> withDefaultSpan
                    Args =
-                    [ Expr.Int {| Value = 2I |}
-                      Expr.Int {| Value = 5I |}
-                      Expr.Int {| Value = 7I |} ] |}
+                    [ Expr.Int {| Value = 2I |} |> withDefaultSpan
+                      Expr.Int {| Value = 5I |} |> withDefaultSpan
+                      Expr.Int {| Value = 7I |} |> withDefaultSpan ] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -155,11 +180,19 @@ type EvaluatorTests() =
                                             Expr.Binary
                                                 {| Left =
                                                     Expr.Name {| Value = "x" |}
+                                                    |> withDefaultSpan
                                                    Op = BinaryOp.Sub
                                                    Right =
-                                                    Expr.Name {| Value = "y" |} |} |} |}
-                           Args = [ Expr.Int {| Value = 1I |} ] |}
-                   Args = [ Expr.Int {| Value = 2I |} ] |}
+                                                    Expr.Name {| Value = "y" |}
+                                                    |> withDefaultSpan |}
+                                            |> withDefaultSpan |}
+                                    |> withDefaultSpan |}
+                            |> withDefaultSpan
+                           Args =
+                            [ Expr.Int {| Value = 1I |} |> withDefaultSpan ] |}
+                    |> withDefaultSpan
+                   Args = [ Expr.Int {| Value = 2I |} |> withDefaultSpan ] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -167,9 +200,10 @@ type EvaluatorTests() =
     let ``Functions are curried`` () =
         let body =
             Expr.Binary
-                {| Left = Expr.Name {| Value = "x" |}
+                {| Left = Expr.Name {| Value = "x" |} |> withDefaultSpan
                    Op = BinaryOp.Mul
-                   Right = Expr.Name {| Value = "y" |} |}
+                   Right = Expr.Name {| Value = "y" |} |> withDefaultSpan |}
+            |> withDefaultSpan
 
         Assert.Equal(
             Value.Function(
@@ -183,7 +217,9 @@ type EvaluatorTests() =
                     Expr.Function
                         {| Parameters = [ "x"; "y" ]
                            Body = body |}
-                   Args = [ Expr.Int {| Value = 5I |} ] |}
+                    |> withDefaultSpan
+                   Args = [ Expr.Int {| Value = 5I |} |> withDefaultSpan ] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )
 
@@ -201,10 +237,19 @@ type EvaluatorTests() =
                                 {| Parameters = [ "y" ]
                                    Body =
                                     Expr.Binary
-                                        {| Left = Expr.Name {| Value = "x" |}
+                                        {| Left =
+                                            Expr.Name {| Value = "x" |}
+                                            |> withDefaultSpan
                                            Op = BinaryOp.Sub
-                                           Right = Expr.Name {| Value = "y" |} |} |} |}
+                                           Right =
+                                            Expr.Name {| Value = "y" |}
+                                            |> withDefaultSpan |}
+                                    |> withDefaultSpan |}
+                            |> withDefaultSpan |}
+                    |> withDefaultSpan
                    Args =
-                    [ Expr.Int {| Value = 2I |}; Expr.Int {| Value = 1I |} ] |}
+                    [ Expr.Int {| Value = 2I |} |> withDefaultSpan
+                      Expr.Int {| Value = 1I |} |> withDefaultSpan ] |}
+            |> withDefaultSpan
             |> evalInEmptyEnv
         )

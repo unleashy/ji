@@ -18,13 +18,17 @@ type Expr =
 
     | Function of
         {| Parameters: string list
-           Body: Expr |}
+           Body: SpannedExpr |}
 
-    | Unary of {| Op: UnaryOp; Expr: Expr |}
+    | Unary of {| Op: UnaryOp; Expr: SpannedExpr |}
 
-    | Call of {| Callee: Expr; Args: Expr list |}
+    | Call of
+        {| Callee: SpannedExpr
+           Args: SpannedExpr list |}
 
     | Binary of
-        {| Left: Expr
+        {| Left: SpannedExpr
            Op: BinaryOp
-           Right: Expr |}
+           Right: SpannedExpr |}
+
+and SpannedExpr = { Expr: Expr; Span: Span }

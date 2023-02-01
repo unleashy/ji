@@ -1,5 +1,6 @@
 namespace Ji.Tests
 
+open System.Text.RegularExpressions
 open Xunit
 open FsCheck
 open FsCheck.Xunit
@@ -24,6 +25,30 @@ type GenName =
         Gen.map2 (+) genNameStart genNameContinue |> Arb.fromGen
 
 type ReaderTests() =
+    let rec printAst (expr: SpannedExpr) : string =
+        let exprStr =
+            match expr.Expr with
+            | Expr.Int expr -> $"Int {expr.Value}"
+            | Expr.Name expr -> $"Name {expr.Value}"
+            | Expr.Function expr ->
+                let parameters = expr.Parameters |> String.concat " "
+                $"Function ({parameters}) {printAst expr.Body}"
+            | Expr.Call expr ->
+                let args = expr.Args |> List.map printAst |> String.concat " "
+                $"Call {printAst expr.Callee} {args}"
+            | Expr.Unary expr -> $"Unary {expr.Op} {printAst expr.Expr}"
+            | Expr.Binary expr ->
+                $"Binary {printAst expr.Left} {expr.Op} {printAst expr.Right}"
+
+        $"({exprStr}):{expr.Span.Index},{expr.Span.Length}"
+
+    let uglify (s: string) : string =
+        Regex.Replace(
+            Regex.Replace(s.Trim(), @"\s+", " "),
+            @"\s+\)", // fix spacing before paren close
+            ")"
+        )
+
     [<Fact>]
     let ``Throws on unknown characters`` () =
         let error = Assert.Throws<JiError>(fun () -> read "´" :> obj)
@@ -33,7 +58,10 @@ type ReaderTests() =
     [<Property>]
     let ``Reads integers`` (num: bigint) =
         num >= 0I
-        ==> lazy (Assert.Equal(Expr.Int {| Value = num |}, read $"{num}"))
+        ==> lazy
+            (let code = $"{num}"
+             let actual = read code
+             Assert.Equal($@"(Int {num}):0,{code.Length}", printAst actual))
 
     [<Property>]
     let ``Skips whitespace`` () =
@@ -43,70 +71,76 @@ type ReaderTests() =
         |> Arb.fromGen
         |> Prop.forAll
         <| fun white ->
-            Assert.Equal(Expr.Int {| Value = 1I |}, read $"{white}1{white}")
+            let code = $"{white}1{white}"
+            let actual = read code
+            Assert.Equal($@"(Int 1):{white.Length},1", printAst actual)
 
     [<Property>]
     let ``Skips comments`` ((NonNull s): NonNull<string>) =
         not <| s.Contains('\n')
-        ==> lazy (Assert.Equal(Expr.Int {| Value = 1I |}, read $"#{s}\n1#{s}"))
+        ==> lazy
+            (let code = $"#{s}\n1#{s}"
+             let actual = read code
+             Assert.Equal($@"(Int 1):{s.Length + 2},1", printAst actual))
 
     [<Property(Arbitrary = [| typeof<GenName> |])>]
     let ``Reads names`` (name: string) =
-        Assert.Equal(Expr.Name {| Value = name |}, read $"{name}")
+        let code = $"{name}"
+        let actual = read code
+        Assert.Equal($@"(Name {name}):0,{name.Length}", printAst actual)
 
     [<Fact>]
     let ``Reads negations`` () =
-        Assert.Equal(
-            Expr.Unary
-                {| Op = UnaryOp.Neg
-                   Expr = Expr.Int {| Value = 1234I |} |},
-            read "-1234"
-        )
+        let code = "-1234"
+        let actual = read code
+        Assert.Equal(@"(Unary Neg (Int 1234):1,4):0,5", printAst actual)
 
     [<Fact>]
     let ``Reads additive expressions`` () =
+        let code = "56 + 78 - 90"
+        let actual = read code
         Assert.Equal(
-            Expr.Binary
-                {| Left =
-                    Expr.Binary
-                        {| Left = Expr.Int {| Value = 56I |}
-                           Op = BinaryOp.Add
-                           Right = Expr.Int {| Value = 78I |} |}
-                   Op = BinaryOp.Sub
-                   Right = Expr.Int {| Value = 90I |} |},
-            read "56 + 78 - 90"
+            uglify
+                @"
+                (Binary
+                    (Binary (Int 56):0,2 Add (Int 78):5,2):0,7
+                    Sub
+                    (Int 90):10,2
+                ):0,12
+                ",
+            printAst actual
         )
 
     [<Fact>]
     let ``Reads multiplicative expressions`` () =
+        let code = "12 * 34 / 56"
+        let actual = read code
         Assert.Equal(
-            Expr.Binary
-                {| Left =
-                    Expr.Binary
-                        {| Left = Expr.Int {| Value = 12I |}
-                           Op = BinaryOp.Mul
-                           Right = Expr.Int {| Value = 34I |} |}
-                   Op = BinaryOp.Div
-                   Right = Expr.Int {| Value = 56I |} |},
-            read "12 * 34 / 56"
+            uglify
+                @"
+                (Binary
+                    (Binary (Int 12):0,2 Mul (Int 34):5,2):0,7
+                    Div
+                    (Int 56):10,2
+                ):0,12
+                ",
+            printAst actual
         )
 
     [<Fact>]
     let ``Reads parenthesised expressions`` () =
+        let code = "(1 + 2) * (3 - 4)"
+        let actual = read code
         Assert.Equal(
-            Expr.Binary
-                {| Left =
-                    Expr.Binary
-                        {| Left = Expr.Int {| Value = 1I |}
-                           Op = BinaryOp.Add
-                           Right = Expr.Int {| Value = 2I |} |}
-                   Op = BinaryOp.Mul
-                   Right =
-                    Expr.Binary
-                        {| Left = Expr.Int {| Value = 3I |}
-                           Op = BinaryOp.Sub
-                           Right = Expr.Int {| Value = 4I |} |} |},
-            read "(1 + 2) * (3 - 4)"
+            uglify
+                @"
+                (Binary
+                    (Binary (Int 1):1,1 Add (Int 2):5,1):0,7
+                    Mul
+                    (Binary (Int 3):11,1 Sub (Int 4):15,1):10,7
+                ):0,17
+                ",
+            printAst actual
         )
 
     [<Fact>]
@@ -129,21 +163,26 @@ type ReaderTests() =
 
     [<Fact>]
     let ``Reads functions with no parameters`` () =
+        let code = "λ → 1"
+        let actual = read code
         Assert.Equal(
-            Expr.Function
-                {| Parameters = []
-                   Body = Expr.Int {| Value = 1I |} |},
-            read "λ → 1"
+            uglify
+                @"
+                (Function () (Int 1):4,1):0,5
+                ",
+            printAst actual
         )
 
     [<Property(EndSize = 5, Arbitrary = [| typeof<GenName> |])>]
-    let ``Reads functions with parameters`` (paramNames: string list) =
-        let paramNamesCode = paramNames |> String.concat " "
+    let ``Reads functions with parameters`` (parameters: string list) =
+        let parametersCode = parameters |> String.concat " "
+        let code = $"λ{parametersCode} → 99"
+
+        let actual = read code
+
         Assert.Equal(
-            Expr.Function
-                {| Parameters = paramNames
-                   Body = Expr.Int {| Value = 99I |} |},
-            read $"λ{paramNamesCode} → 99"
+            $@"(Function ({parametersCode}) (Int 99):{parametersCode.Length + 4},2):0,{code.Length}",
+            printAst actual
         )
 
     [<Fact>]
@@ -154,48 +193,53 @@ type ReaderTests() =
 
     [<Fact>]
     let ``Accepts ASCII syntax for functions`` () =
+        let code = @"\a b -> 42"
+        let actual = read code
         Assert.Equal(
-            Expr.Function
-                {| Parameters = [ "a"; "b" ]
-                   Body = Expr.Int {| Value = 42I |} |},
-            read @"\a b -> 42"
+            uglify @"(Function (a b) (Int 42):8,2):0,10",
+            printAst actual
         )
 
     [<Fact>]
     let ``Reads function calls with one argument`` () =
+        let code = "f 8"
+        let actual = read code
         Assert.Equal(
-            Expr.Call
-                {| Callee = Expr.Name {| Value = "f" |}
-                   Args = [ Expr.Int {| Value = 8I |} ] |},
-            read "f 8"
+            uglify @"(Call (Name f):0,1 (Int 8):2,1):0,3",
+            printAst actual
         )
 
     [<Fact>]
     let ``Reads function calls with many arguments`` () =
+        let code = "g 1 (-2) (3 + 4)"
+        let actual = read code
         Assert.Equal(
-            Expr.Call
-                {| Callee = Expr.Name {| Value = "g" |}
-                   Args =
-                    [ Expr.Int {| Value = 1I |}
-                      Expr.Unary
-                          {| Op = UnaryOp.Neg
-                             Expr = Expr.Int {| Value = 2I |} |}
-                      Expr.Binary
-                          {| Left = Expr.Int {| Value = 3I |}
-                             Op = BinaryOp.Add
-                             Right = Expr.Int {| Value = 4I |} |} ] |},
-            read "g 1 (-2) (3 + 4)"
+            uglify
+                @"
+                (Call (Name g):0,1
+                    (Int 1):2,1
+                    (Unary Neg (Int 2):6,1):4,4
+                    (Binary (Int 3):10,1 Add (Int 4):14,1):9,7
+                ):0,16
+                ",
+            printAst actual
         )
 
     [<Fact>]
     let ``Reads function call chains`` () =
+        let code = "(h 2) 3 4"
+        let actual = read code
         Assert.Equal(
-            Expr.Call
-                {| Callee =
-                    Expr.Call
-                        {| Callee = Expr.Name {| Value = "h" |}
-                           Args = [ Expr.Int {| Value = 2I |} ] |}
-                   Args =
-                    [ Expr.Int {| Value = 3I |}; Expr.Int {| Value = 4I |} ] |},
-            read "(h 2) 3 4"
+            uglify
+                @"
+                (Call
+                    (Call
+                        (Name h):1,1
+                        (Int 2):3,1
+                    ):0,5
+                    (Int 3):6,1
+                    (Int 4):8,1
+                ):0,9
+                ",
+            printAst actual
         )

@@ -21,8 +21,8 @@ module Evaluator =
             failwith
                 $"Cannot apply binary operator {op} to values {left} and {right}"
 
-    let rec eval (env: Env) (expr: Expr) : Value<Env> =
-        match expr with
+    let rec eval (env: Env) (spannedExpr: SpannedExpr) : Value<Env> =
+        match spannedExpr.Expr with
         | Expr.Int(expr) -> Value.Int(expr.Value)
 
         | Expr.Name(expr) ->
