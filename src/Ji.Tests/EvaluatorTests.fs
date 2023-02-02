@@ -9,7 +9,7 @@ open Ji.Evaluator
 type EvaluatorTests() =
     let withDefaultSpan expr =
         { Expr = expr
-          Span = { Index = 0; Length = 1 } }
+          Span = { Code = ""; Index = 0; Length = 1 } }
 
     let evalInEmptyEnv = eval Env.empty
 
@@ -17,10 +17,10 @@ type EvaluatorTests() =
     let ``Evaluates integers`` (num: bigint) =
         num >= 0I
         ==> lazy
-            (Assert.Equal(
+            Assert.Equal(
                 Value.Int num,
                 Expr.Int {| Value = num |} |> withDefaultSpan |> evalInEmptyEnv
-            ))
+            )
 
     [<Fact>]
     let ``Evaluates negation`` () =
