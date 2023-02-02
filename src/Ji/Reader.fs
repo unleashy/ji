@@ -149,12 +149,16 @@ module private Lexer =
         match token with
         | Some(token, source') ->
             ({ Token = token
-               Span = Span.ofSlice source.CurrentIndex source'.CurrentIndex },
+               Span =
+                 Span.ofSlice
+                     source.Code
+                     source.CurrentIndex
+                     source'.CurrentIndex },
              source')
 
         | None when source |> Source.isEmpty ->
             ({ Token = Token.End
-               Span = Span.emptyAt source.CurrentIndex },
+               Span = Span.emptyAt source.Code source.CurrentIndex },
              source)
 
         | None ->
@@ -174,7 +178,7 @@ module Reader =
         | Some(head) -> SeqCons(head, s |> Seq.skip 1)
         | None -> SeqNil
 
-    let private readImpl code =
+    let private readImpl =
         let rec readExpr tokens = readAdd tokens
 
         and readAdd tokens =
@@ -289,7 +293,7 @@ module Reader =
                 Error.raiseWith
                     { Code = ErrorCode.ExpectedExpr
                       Message = $"Expected an expression but got {token.Token}"
-                      Location = Location.ofSpan code token.Span }
+                      Location = Location.ofSpan token.Span }
 
         and readInt tokens =
             match tokens with
@@ -339,7 +343,7 @@ module Reader =
                         { Code = ErrorCode.ExpectedArrow
                           Message =
                             $"Expected an '→' or '->' to continue lambda, got {token.Token}"
-                          Location = Location.ofSpan code token.Span }
+                          Location = Location.ofSpan token.Span }
             | _ -> None
 
         and readParams tokens =
@@ -365,22 +369,22 @@ module Reader =
                     Some({ expr with Span = openSpan ++ closeSpan }, tokens)
                 | _ ->
                     let token = tokens |> Seq.head
-                    let startLocation = Location.ofSpan code openSpan
+                    let startLocation = Location.ofSpan openSpan
                     Error.raiseWith
                         { Code = ErrorCode.UnclosedParens
                           Message =
                             $"Unclosed parenthesised expression starting at {startLocation}"
-                          Location = Location.ofSpan code token.Span }
+                          Location = Location.ofSpan token.Span }
             | _ -> None
 
         readExpr
 
     let read (code: string) : SpannedExpr =
-        let ast, tokens = readImpl code (Lexer.tokenise code)
+        let ast, tokens = readImpl (Lexer.tokenise code)
         match tokens |> Seq.head with
         | { Token = Token.End } -> ast
         | { Token = extra; Span = span } ->
             Error.raiseWith
                 { Code = ErrorCode.ExtraneousInput
                   Message = $"Extraneous input: unexpected {extra}"
-                  Location = Location.ofSpan code span }
+                  Location = Location.ofSpan span }
