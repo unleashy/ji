@@ -17,10 +17,10 @@ module Error =
     type RaiseWithRecord =
         { Code: ErrorCode
           Message: string
-          Location: Location }
+          Span: Span }
 
     let raiseWith (data: RaiseWithRecord) =
-        raise <| JiException(data.Message, data.Code, data.Location)
+        raise <| JiException(data.Message, data.Code, Location.ofSpan data.Span)
 
     let formatErrorCode (code: ErrorCode) : string =
         "JI" + (code |> int |> string).PadLeft(3, '0')

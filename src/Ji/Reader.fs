@@ -166,7 +166,10 @@ module private Lexer =
             Error.raiseWith
                 { Code = ErrorCode.UnknownChar
                   Message = $"Unknown character {unknownChar}"
-                  Location = Location.ofIndex source.Code source.CurrentIndex }
+                  Span =
+                    { Code = source.Code
+                      Index = source.CurrentIndex
+                      Length = 1 } }
 
     let tokenise (code: string) : seq<SpannedToken> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
@@ -293,7 +296,7 @@ module Reader =
                 Error.raiseWith
                     { Code = ErrorCode.ExpectedExpr
                       Message = $"Expected an expression but got {token.Token}"
-                      Location = Location.ofSpan token.Span }
+                      Span = token.Span }
 
         and readInt tokens =
             match tokens with
@@ -343,7 +346,7 @@ module Reader =
                         { Code = ErrorCode.ExpectedArrow
                           Message =
                             $"Expected an '→' or '->' to continue lambda, got {token.Token}"
-                          Location = Location.ofSpan token.Span }
+                          Span = token.Span }
             | _ -> None
 
         and readParams tokens =
@@ -374,7 +377,7 @@ module Reader =
                         { Code = ErrorCode.UnclosedParens
                           Message =
                             $"Unclosed parenthesised expression starting at {startLocation}"
-                          Location = Location.ofSpan token.Span }
+                          Span = token.Span }
             | _ -> None
 
         readExpr
@@ -387,4 +390,4 @@ module Reader =
             Error.raiseWith
                 { Code = ErrorCode.ExtraneousInput
                   Message = $"Extraneous input: unexpected {extra}"
-                  Location = Location.ofSpan span }
+                  Span = span }
