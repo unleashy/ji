@@ -76,7 +76,7 @@ type ReaderTests() =
             Assert.Equal($@"(Int 1):{white.Length},1", printAst actual)
 
     [<Property>]
-    let ``Skips comments`` ((NonNull s): NonNull<string>) =
+    let ``Skips comments`` (NonNull s: NonNull<string>) =
         not <| s.Contains('\n')
         ==> lazy
             (let code = $"#{s}\n1#{s}"
