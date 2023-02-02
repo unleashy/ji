@@ -15,9 +15,9 @@ type JiException(message: string, code: ErrorCode, location: Location) =
 
 module Error =
     type RaiseWithRecord =
-        {| Code: ErrorCode
-           Message: string
-           Location: Location |}
+        { Code: ErrorCode
+          Message: string
+          Location: Location }
 
     let raiseWith (data: RaiseWithRecord) =
         raise <| JiException(data.Message, data.Code, data.Location)

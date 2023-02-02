@@ -160,9 +160,9 @@ module private Lexer =
         | None ->
             let unknownChar = source |> Source.head
             Error.raiseWith
-                {| Code = ErrorCode.UnknownChar
-                   Message = $"Unknown character {unknownChar}"
-                   Location = Location.ofIndex source.Code source.CurrentIndex |}
+                { Code = ErrorCode.UnknownChar
+                  Message = $"Unknown character {unknownChar}"
+                  Location = Location.ofIndex source.Code source.CurrentIndex }
 
     let tokenise (code: string) : seq<SpannedToken> =
         let unfoldInfinite f = Seq.unfold (f >> Some)
@@ -248,7 +248,7 @@ module Reader =
             | _ -> readCall tokens
 
         and readCall tokens =
-            let isPrimaryStart ({ Token = token }) =
+            let isPrimaryStart { Token = token } =
                 match token with
                 | Token.Int _
                 | Token.Name _
@@ -287,9 +287,9 @@ module Reader =
             | None ->
                 let token = tokens |> Seq.head
                 Error.raiseWith
-                    {| Code = ErrorCode.ExpectedExpr
-                       Message = $"Expected an expression but got {token.Token}"
-                       Location = Location.ofSpan code token.Span |}
+                    { Code = ErrorCode.ExpectedExpr
+                      Message = $"Expected an expression but got {token.Token}"
+                      Location = Location.ofSpan code token.Span }
 
         and readInt tokens =
             match tokens with
@@ -336,10 +336,10 @@ module Reader =
                 | _ ->
                     let token = tokens |> Seq.head
                     Error.raiseWith
-                        {| Code = ErrorCode.ExpectedArrow
-                           Message =
+                        { Code = ErrorCode.ExpectedArrow
+                          Message =
                             $"Expected an '→' or '->' to continue lambda, got {token.Token}"
-                           Location = Location.ofSpan code token.Span |}
+                          Location = Location.ofSpan code token.Span }
             | _ -> None
 
         and readParams tokens =
@@ -367,10 +367,10 @@ module Reader =
                     let token = tokens |> Seq.head
                     let startLocation = Location.ofSpan code openSpan
                     Error.raiseWith
-                        {| Code = ErrorCode.UnclosedParens
-                           Message =
+                        { Code = ErrorCode.UnclosedParens
+                          Message =
                             $"Unclosed parenthesised expression starting at {startLocation}"
-                           Location = Location.ofSpan code token.Span |}
+                          Location = Location.ofSpan code token.Span }
             | _ -> None
 
         readExpr
@@ -381,6 +381,6 @@ module Reader =
         | { Token = Token.End } -> ast
         | { Token = extra; Span = span } ->
             Error.raiseWith
-                {| Code = ErrorCode.ExtraneousInput
-                   Message = $"Extraneous input: unexpected {extra}"
-                   Location = Location.ofSpan code span |}
+                { Code = ErrorCode.ExtraneousInput
+                  Message = $"Extraneous input: unexpected {extra}"
+                  Location = Location.ofSpan code span }
