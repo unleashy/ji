@@ -8,3 +8,10 @@ obj
 # Ionide
 .fake
 TestResults
+
+# IntelliJ
+.idea
+ji.sln.DotSettings.user
+
+# Visual Studio
+.vs
