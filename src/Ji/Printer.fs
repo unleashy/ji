@@ -4,7 +4,7 @@ module Printer =
     let print (value: Value<_>) : string =
         match value with
         | Value.Int(n) -> string n
-        | Value.Function _ -> "<function>"
+        | Value.Function(_, parameters, _) -> $"<function/{parameters.Length}>"
 
     let printType (value: Value<_>) : string =
         match value with
