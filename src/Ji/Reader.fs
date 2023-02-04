@@ -272,10 +272,7 @@ module Reader =
             let callee, tokens = readPrimary tokens
             if tokens |> Seq.head |> isPrimaryStart then
                 let args, tokens = loop [] tokens
-                let span =
-                    match args |> List.tryLast with
-                    | Some(lastArg) -> callee.Span ++ lastArg.Span
-                    | None -> callee.Span
+                let span = callee.Span ++ (args |> List.last).Span
 
                 let expr =
                     { Expr = Expr.Call {| Callee = callee; Args = args |}
