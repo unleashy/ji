@@ -6,6 +6,11 @@ type ErrorCode =
     | ExpectedExpr = 3
     | ExpectedArrow = 4
     | UnclosedParens = 5
+    | NotInScope = 6
+    | InvalidCall = 7
+    | InvalidType = 8
+    | InvalidTypeUnary = 9
+    | InvalidTypeBinary = 10
 
 type JiException(message: string, code: ErrorCode, location: Location) =
     inherit System.Exception(message)

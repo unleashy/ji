@@ -66,7 +66,9 @@ type EvaluationTests() =
         Assert.Equal(value, read code |> eval Env.empty)
 
     let shouldThrow code (data: ShouldThrowData) =
-        let error = Assert.Throws<JiException>(fun () -> read code :> obj)
+        let error =
+            Assert.Throws<JiException>(fun () ->
+                read code |> eval Env.empty :> obj)
         Assert.Equal(error.Code, data.Code)
         Assert.Equal(
             error.Location,
@@ -218,3 +220,43 @@ type EvaluationTests() =
     [<Fact>]
     let ``Functions in curried form can be called directly`` () =
         shouldEval @"(λx → λy → x - y) 2 1" (Value.Int(2I - 1I))
+
+    [<Fact>]
+    let ``Throws on undefined name`` () =
+        shouldThrow
+            @"(λx → y) 1"
+            { Code = ErrorCode.NotInScope
+              Line = 1
+              Column = 7 }
+
+    [<Fact>]
+    let ``Throws if trying to call a non-function`` () =
+        shouldThrow
+            @"1 2"
+            { Code = ErrorCode.InvalidCall
+              Line = 1
+              Column = 1 }
+
+    [<Fact>]
+    let ``Throws if too many arguments are passed to a function`` () =
+        shouldThrow
+            @"(\x -> x) 1 2"
+            { Code = ErrorCode.InvalidCall
+              Line = 1
+              Column = 1 }
+
+    [<Fact>]
+    let ``Throws on invalid type for unary`` () =
+        shouldThrow
+            @"-(\x -> x)"
+            { Code = ErrorCode.InvalidTypeUnary
+              Line = 1
+              Column = 1 }
+
+    [<Fact>]
+    let ``Throws on invalid type for binary`` () =
+        shouldThrow
+            @"(\x -> x) + 42"
+            { Code = ErrorCode.InvalidTypeBinary
+              Line = 1
+              Column = 1 }

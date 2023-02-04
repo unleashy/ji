@@ -10,9 +10,9 @@
     <Compile Include="Ast.fs" />
     <Compile Include="Reader.fs" />
     <Compile Include="Values.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="Env.fs" />
     <Compile Include="Evaluator.fs" />
-    <Compile Include="Printer.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 </Project>
